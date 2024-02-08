@@ -57,11 +57,11 @@
      fs.writeFile('/index.html', `<!DOCTYPE html><html><body><h1>FS works</h1><a href="${root}foo.html">foo link</a><br><a href="${root}admin/">admin</a>${ribbon}</body></html>`);
      fs.writeFile('/foo.html', `<!DOCTYPE html><html><body><h1>Foo</h1><a href="${root}">home</a>${ribbon}</html>`);
 
-     (async () => {
+/*      (async () => {
        // ignore error when directory exists
        await fs.mkdir('/foo').catch(e => {});
        fs.writeFile('/foo/index.html', `<!DOCTYPE html><html><body><h1>FS works from /foo directory</h1><a href="${root}admin/">admin</a>${ribbon}</body></html>`);
-     })();
+     })(); */
     </script>
   </body>
 </html>

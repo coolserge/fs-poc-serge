@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="https://cdn.jsdelivr.net/npm/@isomorphic-git/lightning-fs/dist/lightning-fs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/isomorphic-git@1.25.3/index.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/isomorphic-git@1.25.3/http/web/index.umd.js"></script>
+    <title>LightningFS and Isomorphic-git POC</title>
+  </head>
+  <body>
+    <h1>LightningFS and Isomorphic-git POC</h1>
+    <script>
+(async () => {
+    const fs = new LightningFS('testfs');
+    await git.clone({
+        fs,
+        http: GitHttp,
+        dir: '/foo',
+        corsProxy: 'https://cors.isomorphic-git.org',
+        url: 'https://github.com/coolserge/foo',
+        singleBranch: true,
+        depth: 1
+    });
+    const config = await new Promise((resolve, reject) => {
+        fs.readFile('/foo/index.html', 'utf8', function(err, data) {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(data);
+            }
+        });
+    });
+    console.log(config);
+    
+})();
+      </script>
+  </body>
+</html>
