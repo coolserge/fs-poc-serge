@@ -11,6 +11,9 @@
     </div>
     <script src="https://cdn.jsdelivr.net/npm/@isomorphic-git/lightning-fs@4.6.0/dist/lightning-fs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/idb-keyval/dist/umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/isomorphic-git@1.25.3/index.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/isomorphic-git@1.25.3/http/web/index.umd.js"></script>
+    
     <select id="dir">
       <option value="/">/</option>
       <option value="/foo">/foo</option>
@@ -45,6 +48,27 @@
                       });
                       // registration worked
                       console.log('Registration succeeded. Scope is ' + reg.scope);
+                      const fs = new LightningFS('testfs');
+                      console.log("2nd console log")
+                      // git.clone({
+                      //     fs,
+                      //     http: GitHttp,
+                      //     dir: '/foo',
+                      //     corsProxy: 'https://cors.isomorphic-git.org',
+                      //     url: 'https://github.com/coolserge/foo',
+                      //     singleBranch: true,
+                      //     depth: 1
+                      // }).then(function(){
+                      //     // fs.readFile('/foo/index.html', 'utf8', function(err, data) {
+                      //     //       if (err) {
+                      //     //         reject(err);
+                      //     //       } else {
+                      //     //         resolve(data);
+                      //     //       }
+                      //     // });
+                      //     console.log("clone complete")
+                      // });
+
                   }).catch(function(error) {
                       // registration failed
                       console.log('Registration failed with ' + error);
@@ -57,11 +81,49 @@
      fs.writeFile('/index.html', `<!DOCTYPE html><html><body><h1>FS works</h1><a href="${root}foo.html">foo link</a><br><a href="${root}admin/">admin</a>${ribbon}</body></html>`);
      fs.writeFile('/foo.html', `<!DOCTYPE html><html><body><h1>Foo</h1><a href="${root}">home</a>${ribbon}</html>`);
 
-/*      (async () => {
-       // ignore error when directory exists
-       await fs.mkdir('/foo').catch(e => {});
-       fs.writeFile('/foo/index.html', `<!DOCTYPE html><html><body><h1>FS works from /foo directory</h1><a href="${root}admin/">admin</a>${ribbon}</body></html>`);
-     })(); */
+     //  (async () => {
+     //   // ignore error when directory exists
+     //   await fs.mkdir('/foo').catch(e => {});
+     //   console.log("hi")
+     //   fs.writeFile('/foo/index.html', `<!DOCTYPE html><html><body><h1>FS works from /foo directory</h1><a href="${root}admin/">admin</a>${ribbon}</body></html>`);
+     //   // fs.readFile('/foo/index.html', 'utf8', function(err, data) {
+     //   //          if (err) {
+     //   //              console.log(err);
+     //   //              reject(err);
+     //   //          } else {
+     //   //              console.log(data);
+     //   //              resolve(data);
+
+     //   //          }
+     //   //      });
+     //   console.log("after writefile")
+     // })(); 
+
+     (async () => {
+        const fs = new LightningFS('testfs');
+        console.log("in async")
+        await git.clone({
+            fs,
+            http: GitHttp,
+            dir: '/foo',
+            corsProxy: 'https://cors.isomorphic-git.org',
+            url: 'https://github.com/coolserge/foo',
+            singleBranch: true,
+            depth: 1
+        });
+        const config = await new Promise((resolve, reject) => {
+            fs.readFile('/foo/index.html', 'utf8', function(err, data) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(data);
+                }
+            });
+        });
+        console.log(config);
+        
+    })();
+
     </script>
   </body>
 </html>
