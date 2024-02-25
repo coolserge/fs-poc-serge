@@ -1,68 +1,91 @@
 <!DOCTYPE html>
 <html>
-  <head>
+
+<head>
     <script src="https://cdn.jsdelivr.net/npm/@isomorphic-git/lightning-fs/dist/lightning-fs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/isomorphic-git@1.25.3/index.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/isomorphic-git@1.25.3/http/web/index.umd.js"></script>
     <title>LightningFS and Isomorphic-git POC</title>
-  </head>
-  <body>
+</head>
+
+<body>
     <h1>LightningFS and Isomorphic-git POC</h1>
-        <!-- Add a Clone button -->
-        <button id="cloneBtn">Clone</button>
-         <!-- Add a div to display the HTML content -->
-         <div id="contentDisplay"></div>
+    <!-- Add a Clone button -->
+    <button id="cloneBtn">Clone</button>
+    <!-- Add a div to display the HTML content -->
+    <div id="contentDisplay"></div>
     <script>
 
-    // Registering the service worker
-    if ('serviceWorker' in navigator) {
-         navigator.serviceWorker.register(`sw.js`)
-                  .then(function(reg) {
-                      reg.addEventListener('updatefound', function() {
-                          const installingWorker = reg.installing;
+        const fs = new LightningFS('testfs');
+        const pfs = fs.promises; // Use promises interface for cleaner async operations
 
-                          console.log('A new service worker is being installed:',
-                                      installingWorker);
-                      });
-                      // registration worked
-                      console.log('Registration succeeded. Scope is ' + reg.scope);
-
-                  }).catch(function(error) {
-                      // registration failed
-                      console.log('Registration failed with ' + error);
-                  });
-     }
-
-      // Clone function
-  async function cloneRepo() {
-    const fs = new LightningFS('testfs');
-    await git.clone({
-        fs,
-        http: GitHttp,
-        dir: '/foo',
-        corsProxy: 'https://cors.isomorphic-git.org',
-        url: 'https://github.com/coolserge/foo',
-        singleBranch: true,
-        depth: 1
-    });
-    const config = await new Promise((resolve, reject) => {
-        fs.readFile('/foo/index.html', 'utf8', function(err, data) {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(data);
+        // Function to check if /foo exists and display content if it does
+        async function checkAndDisplayContent() {
+            try {
+                const stats = await pfs.stat('/foo');
+                if (stats.isDirectory()) {
+                    // If /foo exists, display the content without cloning
+                    const navdisplay = '<!DOCTYPE html><html><body><h1>Navigation</h1><a href="foo/index.html">Cloned link</a> Visit this page</body></html>';
+                    document.getElementById('contentDisplay').innerHTML = navdisplay;
+                }
+            } catch (err) {
+                // If /foo does not exist, do nothing (err will be thrown if /foo doesn't exist)
+                console.log('/foo directory does not exist.');
             }
-        });
-    });
-    console.log(config);
-    const navdisplay = '<!DOCTYPE html><html><body><h1>Navigation</h1><a href="foo/index.html">Cloned link</a> Visit this page</body></html>';
-    // Display the fetched HTML content inside the div
-    document.getElementById('contentDisplay').innerHTML = navdisplay;
+        }
 
-    
-};
-      // Attach the event listener to the button
-      document.getElementById('cloneBtn').addEventListener('click', cloneRepo);
-      </script>
-  </body>
+        // Registering the service worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register(`sw.js`)
+                .then(function (reg) {
+                    reg.addEventListener('updatefound', function () {
+                        const installingWorker = reg.installing;
+
+                        console.log('A new service worker is being installed:',
+                            installingWorker);
+                    });
+                    // registration worked
+                    console.log('Registration succeeded. Scope is ' + reg.scope);
+
+                }).catch(function (error) {
+                    // registration failed
+                    console.log('Registration failed with ' + error);
+                });
+        }
+
+        // Clone function
+        async function cloneRepo() {
+            await git.clone({
+                fs,
+                http: GitHttp,
+                dir: '/foo',
+                corsProxy: 'https://cors.isomorphic-git.org',
+                url: 'https://github.com/coolserge/foo',
+                singleBranch: true,
+                depth: 1
+            });
+            const config = await new Promise((resolve, reject) => {
+                fs.readFile('/foo/index.html', 'utf8', function (err, data) {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve(data);
+                    }
+                });
+            });
+            console.log(config);
+            const navdisplay = '<!DOCTYPE html><html><body><h1>Navigation</h1><a href="foo/index.html">Cloned link</a> Visit this page</body></html>';
+            // Display the fetched HTML content inside the div
+            document.getElementById('contentDisplay').innerHTML = navdisplay;
+
+
+        };
+        // Attach the event listener to the button
+        document.getElementById('cloneBtn').addEventListener('click', cloneRepo);
+
+        // Check if /foo exists and display content on page load
+        checkAndDisplayContent();
+    </script>
+</body>
+
 </html>
