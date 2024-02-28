@@ -12,6 +12,8 @@
     <h1>LightningFS and Isomorphic-git POC</h1>
     <!-- Add a Clone button -->
     <button id="cloneBtn">Clone</button>
+        <!-- Add a Delete button -->
+        <button id="deleteBtn">Delete</button>
     <!-- Add a div to display the HTML content -->
     <div id="contentDisplay"></div>
     <script>
@@ -33,6 +35,34 @@
                 console.log('/foo directory does not exist.');
             }
         }
+
+        // Function to recursively delete all files and directories within a given path
+async function deleteDirectoryContents(path) {
+    const entries = await pfs.readdir(path);
+    await Promise.all(entries.map(async (entry) => {
+        const fullPath = `${path}/${entry}`;
+        const stats = await pfs.stat(fullPath);
+        if (stats.isDirectory()) {
+            await deleteDirectoryContents(fullPath); // Recurse into subdirectory
+            await pfs.rmdir(fullPath); // Remove the now-empty subdirectory
+        } else {
+            await pfs.unlink(fullPath); // Delete file
+        }
+    }));
+}
+
+// Updated function to delete /foo directory and clear the content display
+async function deleteRepo() {
+    try {
+        await deleteDirectoryContents('/foo'); // First, delete all contents
+        await pfs.rmdir('/foo'); // Then, remove the now-empty directory
+        console.log('/foo directory deleted successfully.');
+        document.getElementById('contentDisplay').innerHTML = ''; // Clear the display content
+    } catch (err) {
+        console.log('Failed to delete /foo directory:', err);
+    }
+}
+
 
         // Registering the service worker
         if ('serviceWorker' in navigator) {
@@ -80,8 +110,9 @@
 
 
         };
-        // Attach the event listener to the button
+        // Attach the event listener to the buttons
         document.getElementById('cloneBtn').addEventListener('click', cloneRepo);
+        document.getElementById('deleteBtn').addEventListener('click', deleteRepo);
 
         // Check if /foo exists and display content on page load
         checkAndDisplayContent();
