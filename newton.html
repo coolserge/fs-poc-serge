@@ -12,8 +12,8 @@
     <h1>LightningFS and Isomorphic-git POC</h1>
     <!-- Add a Clone button -->
     <button id="cloneBtn">Clone</button>
-        <!-- Add a Delete button -->
-        <button id="deleteBtn">Delete</button>
+    <!-- Add a Delete button -->
+    <button id="deleteBtn">Delete</button>
     <!-- Add a div to display the HTML content -->
     <div id="contentDisplay"></div>
     <script>
@@ -26,42 +26,58 @@
             try {
                 const stats = await pfs.stat('/foo');
                 if (stats.isDirectory()) {
-                    // If /foo exists, display the content without cloning
+                    // Check if the directory is empty
+                    const entries = await pfs.readdir('/foo');
+                    if (entries.length > 0) {
+                        // Directory is not empty, show Delete button
+                        document.getElementById('deleteBtn').style.display = 'inline';
+                        document.getElementById('cloneBtn').style.display = 'none';
+                                            // If /foo exists, display the content without cloning
                     const navdisplay = '<!DOCTYPE html><html><body><h1>Navigation</h1><a href="foo/index.html">Cloned link</a> Visit this page</body></html>';
                     document.getElementById('contentDisplay').innerHTML = navdisplay;
+                    } else {
+                        // Directory is empty, show Clone button
+                        document.getElementById('cloneBtn').style.display = 'inline';
+                        document.getElementById('deleteBtn').style.display = 'none';
+                    }
                 }
             } catch (err) {
-                // If /foo does not exist, do nothing (err will be thrown if /foo doesn't exist)
+                // /foo does not exist, show Clone button
+                document.getElementById('cloneBtn').style.display = 'inline';
+                document.getElementById('deleteBtn').style.display = 'none';
                 console.log('/foo directory does not exist.');
             }
         }
 
         // Function to recursively delete all files and directories within a given path
-async function deleteDirectoryContents(path) {
-    const entries = await pfs.readdir(path);
-    await Promise.all(entries.map(async (entry) => {
-        const fullPath = `${path}/${entry}`;
-        const stats = await pfs.stat(fullPath);
-        if (stats.isDirectory()) {
-            await deleteDirectoryContents(fullPath); // Recurse into subdirectory
-            await pfs.rmdir(fullPath); // Remove the now-empty subdirectory
-        } else {
-            await pfs.unlink(fullPath); // Delete file
+        async function deleteDirectoryContents(path) {
+            const entries = await pfs.readdir(path);
+            await Promise.all(entries.map(async (entry) => {
+                const fullPath = `${path}/${entry}`;
+                const stats = await pfs.stat(fullPath);
+                if (stats.isDirectory()) {
+                    await deleteDirectoryContents(fullPath); // Recurse into subdirectory
+                    await pfs.rmdir(fullPath); // Remove the now-empty subdirectory
+                } else {
+                    await pfs.unlink(fullPath); // Delete file
+                }
+            }));
         }
-    }));
-}
 
-// Updated function to delete /foo directory and clear the content display
-async function deleteRepo() {
-    try {
-        await deleteDirectoryContents('/foo'); // First, delete all contents
-        await pfs.rmdir('/foo'); // Then, remove the now-empty directory
-        console.log('/foo directory deleted successfully.');
-        document.getElementById('contentDisplay').innerHTML = ''; // Clear the display content
-    } catch (err) {
-        console.log('Failed to delete /foo directory:', err);
-    }
-}
+        // Updated function to delete /foo directory and clear the content display
+        async function deleteRepo() {
+            try {
+                await deleteDirectoryContents('/foo'); // First, delete all contents
+                await pfs.rmdir('/foo'); // Then, remove the now-empty directory
+                console.log('/foo directory deleted successfully.');
+                document.getElementById('contentDisplay').innerHTML = ''; // Clear the display content
+                            // Toggle button visibility
+            document.getElementById('deleteBtn').style.display = 'none';
+            document.getElementById('cloneBtn').style.display = 'inline';
+            } catch (err) {
+                console.log('Failed to delete /foo directory:', err);
+            }
+        }
 
 
         // Registering the service worker
@@ -107,6 +123,9 @@ async function deleteRepo() {
             const navdisplay = '<!DOCTYPE html><html><body><h1>Navigation</h1><a href="foo/index.html">Cloned link</a> Visit this page</body></html>';
             // Display the fetched HTML content inside the div
             document.getElementById('contentDisplay').innerHTML = navdisplay;
+                        // Toggle button visibility
+                        document.getElementById('cloneBtn').style.display = 'none';
+            document.getElementById('deleteBtn').style.display = 'inline';
 
 
         };
