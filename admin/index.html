@@ -1,129 +1,20 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <title>FS PoC</title>
-  </head>
-  <body>
-    <h1>Server works</h1>
-    <a href="/" id="link">App</a>
-    <div id="github">
-    <a href="https://github.com/jcubic/fs-poc" class="github-corner" aria-label="View source on GitHub"><svg width="80" height="80" viewBox="0 0 250 250" style="fill:#151513; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a><style>.github-corner:hover .octo-arm{animation:octocat-wave 560ms ease-in-out}@keyframes octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80%{transform:rotate(10deg)}}@media (max-width:500px){.github-corner:hover .octo-arm{animation:none}.github-corner .octo-arm{animation:octocat-wave 560ms ease-in-out}}</style>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/@isomorphic-git/lightning-fs@4.6.0/dist/lightning-fs.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/idb-keyval/dist/umd.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/isomorphic-git@1.25.3/index.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/isomorphic-git@1.25.3/http/web/index.umd.js"></script>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Static Page</title>
+    <!-- Bootstrap CSS CDN -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
+</head>
+<body>
     
-    <select id="dir">
-      <option value="/">/</option>
-      <option value="/foo">/foo</option>
-    </select>
-    <script>
-     // saving current directory in indexedDB (with help from idbKeyval by Jake Archibald)
-     // so it keep the value when browser refresh the worker
-     function save_directory() {
-         idbKeyval.set('__dir__', dir.value);
-     }
-     async function get_path() {
-         // read selected value from localStorage and refres the select html element
-         return (await idbKeyval.get('__dir__')) ?? '/';
-     }
-     async function restore_directory() {
-         const path = await get_path();
-         document.querySelector(`#dir option[value="${path}"]`).selected = true;
-     }
-     dir.addEventListener('change', save_directory);
-     restore_directory();
+    <!-- Main content -->
+    <div class="container mt-5">
+        <h1>Welcome to the static web page</h1>
+        <p>This is a simple static HTML file to navigate to as a part of the original site</p>
+    <p><a href="../newton.html">Back to the main page</a>
+    </div>
 
-     const root = location.pathname.replace(/admin\/?$/, '');
-     link.href = root;
-     if ('serviceWorker' in navigator) {
-         navigator.serviceWorker.register(`${root}sw.js`, { scope: root })
-                  .then(function(reg) {
-                      reg.addEventListener('updatefound', function() {
-                          const installingWorker = reg.installing;
-
-                          console.log('A new service worker is being installed:',
-                                      installingWorker);
-                      });
-                      // registration worked
-                      console.log('Registration succeeded. Scope is ' + reg.scope);
-                      const fs = new LightningFS('testfs');
-                      console.log("2nd console log")
-                      // git.clone({
-                      //     fs,
-                      //     http: GitHttp,
-                      //     dir: '/foo',
-                      //     corsProxy: 'https://cors.isomorphic-git.org',
-                      //     url: 'https://github.com/coolserge/foo',
-                      //     singleBranch: true,
-                      //     depth: 1
-                      // }).then(function(){
-                      //     // fs.readFile('/foo/index.html', 'utf8', function(err, data) {
-                      //     //       if (err) {
-                      //     //         reject(err);
-                      //     //       } else {
-                      //     //         resolve(data);
-                      //     //       }
-                      //     // });
-                      //     console.log("clone complete")
-                      // });
-
-                  }).catch(function(error) {
-                      // registration failed
-                      console.log('Registration failed with ' + error);
-                  });
-     }
-     const { promises: fs } = new LightningFS("testfs");
-
-     const ribbon = github.innerHTML;
-
-     fs.writeFile('/index.html', `<!DOCTYPE html><html><body><h1>FS works</h1><a href="${root}foo.html">foo link</a><br><a href="${root}admin/">admin</a>${ribbon}</body></html>`);
-     fs.writeFile('/foo.html', `<!DOCTYPE html><html><body><h1>Foo</h1><a href="${root}">home</a>${ribbon}</html>`);
-
-     //  (async () => {
-     //   // ignore error when directory exists
-     //   await fs.mkdir('/foo').catch(e => {});
-     //   console.log("hi")
-     //   fs.writeFile('/foo/index.html', `<!DOCTYPE html><html><body><h1>FS works from /foo directory</h1><a href="${root}admin/">admin</a>${ribbon}</body></html>`);
-     //   // fs.readFile('/foo/index.html', 'utf8', function(err, data) {
-     //   //          if (err) {
-     //   //              console.log(err);
-     //   //              reject(err);
-     //   //          } else {
-     //   //              console.log(data);
-     //   //              resolve(data);
-
-     //   //          }
-     //   //      });
-     //   console.log("after writefile")
-     // })(); 
-
-     (async () => {
-        const fs = new LightningFS('testfs');
-        console.log("in async")
-        await git.clone({
-            fs,
-            http: GitHttp,
-            dir: '/foo',
-            corsProxy: 'https://cors.isomorphic-git.org',
-            url: 'https://github.com/coolserge/foo',
-            singleBranch: true,
-            depth: 1
-        });
-        const config = await new Promise((resolve, reject) => {
-            fs.readFile('/foo/index.html', 'utf8', function(err, data) {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(data);
-                }
-            });
-        });
-        console.log(config);
-        
-    })();
-
-    </script>
-  </body>
+</body>
 </html>
