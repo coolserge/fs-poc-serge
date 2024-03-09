@@ -18,8 +18,8 @@
         <h1 class="mb-3">LightningFS and Isomorphic-git POC</h1>
         <p>Navigate to the static page <a href="admin/index.html">here</a></p>
         <!-- Bootstrap styled buttons -->
-        <button id="cloneBtn" class="btn btn-primary mr-2">Clone</button>
-        <button id="deleteBtn" class="btn btn-danger">Delete</button>
+        <button id="cloneBtn" class="btn btn-primary mr-2" style="display: none;">Clone</button>
+        <button id="deleteBtn" class="btn btn-danger" style="display: none;">Delete</button>
         <!-- Div to display content -->
         <div id="contentDisplay" class="mt-3"></div>
     </div>
@@ -41,20 +41,20 @@
                     if (entries.length > 0) {
                         // Directory is not empty, show Delete button
                         document.getElementById('deleteBtn').style.display = 'inline';
-                        document.getElementById('cloneBtn').style.display = 'none';
                         // If /foo exists, display the navigational content without cloning
                         const config = await loadNavPageContent();
                         document.getElementById('contentDisplay').innerHTML = config;
                     } else {
                         // Directory is empty, show Clone button
                         document.getElementById('cloneBtn').style.display = 'inline';
-                        document.getElementById('deleteBtn').style.display = 'none';
                     }
+                }
+                else {
+                    document.getElementById('cloneBtn').style.display = 'inline';
                 }
             } catch (err) {
                 // /foo does not exist, show Clone button
                 document.getElementById('cloneBtn').style.display = 'inline';
-                document.getElementById('deleteBtn').style.display = 'none';
                 console.log('/foo directory does not exist.');
             }
         }
