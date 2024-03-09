@@ -25,6 +25,8 @@
     </div>
     <script>
 
+        // Register the service worker
+        registerServiceWorker();
         // Instantiate a new filesystem
         const fs = new LightningFS('testfs');
         const pfs = fs.promises; // Use promises interface for cleaner async operations
@@ -88,23 +90,22 @@
         }
 
 
-        // Registering the service worker
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register(`sw.js`)
-                .then(function (reg) {
-                    reg.addEventListener('updatefound', function () {
-                        const installingWorker = reg.installing;
-
-                        console.log('A new service worker is being installed:',
-                            installingWorker);
+        function registerServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => {
+                        reg.addEventListener('updatefound', () => {
+                            const installingWorker = reg.installing;
+                            console.log('A new service worker is being installed:', installingWorker);
+                        });
+                        console.log('Registration succeeded. Scope is ' + reg.scope);
+                    })
+                    .catch(error => {
+                        console.log('Registration failed with ' + error);
                     });
-                    // registration worked
-                    console.log('Registration succeeded. Scope is ' + reg.scope);
-
-                }).catch(function (error) {
-                    // registration failed
-                    console.log('Registration failed with ' + error);
-                });
+            } else {
+                console.log('Service workers are not supported in this browser.');
+            }
         }
 
         // Clone function
