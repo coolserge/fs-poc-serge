@@ -22,6 +22,8 @@
     </div>
     <script>
 
+        // Hardcode the nav panel for now
+        const navdisplay = '<!DOCTYPE html><html><head><title>Navigation</title></head><body><h1>Navigation</h1><a href="admin/index.html">Cloned link</a> Visit this page<div class="mb-3"><div class="form-check"><input class="form-check-input" type="radio" name="dir" id="dirFoo" value="/foo" checked><label class="form-check-label" for="dirFoo">Foo</label></div><div class="form-check"><input class="form-check-input" type="radio" name="dir" id="dirAdmin" value="/admin"><label class="form-check-label" for="dirAdmin">Admin</label></div></div></body></html>';
         const fs = new LightningFS('testfs');
         const pfs = fs.promises; // Use promises interface for cleaner async operations
 
@@ -36,8 +38,7 @@
                         // Directory is not empty, show Delete button
                         document.getElementById('deleteBtn').style.display = 'inline';
                         document.getElementById('cloneBtn').style.display = 'none';
-                        // If /foo exists, display the content without cloning
-                        const navdisplay = '<!DOCTYPE html><html><body><h1>Navigation</h1><a href="foo/index.html">Cloned link</a> Visit this page</body></html>';
+                        // If /foo exists, display the navigational content without cloning
                         document.getElementById('contentDisplay').innerHTML = navdisplay;
                     } else {
                         // Directory is empty, show Clone button
@@ -124,8 +125,7 @@
                 });
             });
             console.log(config);
-            const navdisplay = '<!DOCTYPE html><html><body><h1>Navigation</h1><a href="foo/index.html">Cloned link</a> Visit this page</body></html>';
-            // Display the fetched HTML content inside the div
+            // Display the navigational HTML content inside the div
             document.getElementById('contentDisplay').innerHTML = navdisplay;
             // Toggle button visibility
             document.getElementById('cloneBtn').style.display = 'none';
