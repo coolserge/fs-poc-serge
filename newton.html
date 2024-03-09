@@ -24,7 +24,7 @@
     <script>
 
         // Hardcode the nav panel for now
-        const navdisplay = '<!DOCTYPE html><html><head><title>Navigation</title></head><body><h1>Navigation</h1><a href="admin/index.html" id="link">Link</a> Visit this page<div class="mb-3"><select id="dir"><option value="/admin">/admin</option><option value="/foo">/foo</option></select></div></body></html>';
+        const navdisplay = '<h1>Navigation</h1><a href="admin/index.html" id="link">Link</a> Visit this page<div class="mb-3"><select id="dir"><option value="/admin">/admin</option><option value="/foo">/foo</option></select></div>';
         const fs = new LightningFS('testfs');
         const pfs = fs.promises; // Use promises interface for cleaner async operations
 
