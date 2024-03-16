@@ -161,17 +161,17 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
 =Q0Tf
 -----END PGP PUBLIC KEY BLOCK-----`;
 
-                verifySignature(data, armoredSignature, armoredPublicKey)
-                    .then(isValid => {
-                        if (isValid) {
-                            console.log("The signature is valid.");
-                            document.getElementById('contentDisplay').textContent = 'Signature is valid.';
-                        } else {
-                            console.log("The signature is invalid or does not match the provided public key.");
-                            document.getElementById('contentDisplay').textContent = 'Signature is invalid or does not match the provided public key.';
-                        }
-                    });
-            }
+// Perform the signature verification
+const isValid = await verifySignature(data, armoredSignature, armoredPublicKey);
+        if (isValid) {
+            console.log("The signature is valid.");
+            document.getElementById('contentDisplay').textContent = 'Signature is valid.';
+        } else {
+            console.log("The signature is invalid or does not match the provided public key.");
+            document.getElementById('contentDisplay').textContent = 'Signature is invalid or does not match the provided public key.';
+            return; // Stop execution if the signature is invalid
+        }
+    }
             // Display the navigational HTML content inside the div
             try {
                 const entries = await pfs.readdir('/foo');
