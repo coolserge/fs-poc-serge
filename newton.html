@@ -42,8 +42,11 @@
                         // Directory is not empty, show Delete button
                         document.getElementById('deleteBtn').style.display = 'inline';
                         // If /foo exists, display the navigational content without cloning
-                        const config = await loadNavPageContent();
-                        document.getElementById('contentDisplay').innerHTML = config;
+                        if (entries.includes('index.html')) {
+                            document.getElementById('contentDisplay').innerHTML = 'Navigate to the cloned page <a href="/foo/index.html">here</a>';
+                        } else {
+                            document.getElementById('contentDisplay').innerHTML = 'No index.html found in /foo.';
+                        }
                     } else {
                         // Directory is empty, show Clone button
                         document.getElementById('cloneBtn').style.display = 'inline';
@@ -120,18 +123,28 @@
                 singleBranch: true,
                 depth: 1
             });
-            const config = await loadNavPageContent();
-            console.log(config);
+            const config = await loadClonedPageContent(); //for debugging
+            console.log(config); //for debugging
             // Display the navigational HTML content inside the div
-            document.getElementById('contentDisplay').innerHTML = config;
-            // Toggle button visibility
-            document.getElementById('cloneBtn').style.display = 'none';
-            document.getElementById('deleteBtn').style.display = 'inline';
+            try {
+                const entries = await pfs.readdir('/foo');
+                if (entries.includes('index.html')) {
+                    document.getElementById('contentDisplay').innerHTML = 'Navigate to the cloned page <a href="/foo/index.html">here</a>';
+                } else {
+                    document.getElementById('contentDisplay').innerHTML = 'Clone successful, but no index.html found in /foo.';
+                }
+                // Toggle button visibility
+                document.getElementById('cloneBtn').style.display = 'none';
+                document.getElementById('deleteBtn').style.display = 'inline';
+            } catch (err) {
+                console.log('Error reading /foo directory after cloning:', err);
+            }
         };
 
-        async function loadNavPageContent() {
+        //Debugging+logging function
+        async function loadClonedPageContent() {
             return new Promise((resolve, reject) => {
-                fs.readFile('/foo/navpage.html', 'utf8', function (err, data) {
+                fs.readFile('/foo/index.html', 'utf8', function (err, data) {
                     if (err) {
                         reject(err);
                     } else {
