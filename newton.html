@@ -114,23 +114,24 @@
 
         // Clone function
         async function cloneRepo() {
-            await git.clone({
-                fs,
-                http: GitHttp,
-                dir: '/foo',
-                //corsProxy: 'https://cors.isomorphic-git.org',
-                corsProxy: 'https://sandstonemountain.com', //added our proxy server
-                url: 'https://github.com/coolserge/foo',
-                singleBranch: true,
-                depth: 1
-            });
-            const commitObject = await loadClonedCommitObject(); // Load commit signature
-            console.log(commitObject); // Debugging
-            // Assuming the payload and signature are being set for verification
-            if (commitObject) {
-                const data = commitObject.payload; // Directly use the payload from commitObject
-                const armoredSignature = commitObject.commit.gpgsig; // Directly use the gpgsig from commitObject
-                const armoredPublicKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
+            try {
+                await git.clone({
+                    fs,
+                    http: GitHttp,
+                    dir: '/foo',
+                    corsProxy: 'https://sandstonemountain.com', // Added our proxy server
+                    url: 'https://github.com/coolserge/foo',
+                    singleBranch: true,
+                    depth: 1
+                });
+                const commitObject = await loadClonedCommitObject(); // Load commit signature
+                console.log(commitObject); // Debugging
+                // Assuming the payload and signature are being set for verification
+                if (commitObject) {
+
+                    const data = commitObject.payload; // Directly use the payload from commitObject
+                    const armoredSignature = commitObject.commit.gpgsig; // Directly use the gpgsig from commitObject
+                    const armoredPublicKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
 
 mQENBGX19UcBCACobhXY5SVtc+fM8j/XrMhEfikazwbjHcb0ErNwA1SaFhqlvntt
 6HJ5zbPu0JmtYqgI1h4gCsYPtr0ZQfcPO3xpG35WFe4DAcvqoZYUmRD/RuNabjvq
@@ -161,32 +162,37 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
 =Q0Tf
 -----END PGP PUBLIC KEY BLOCK-----`;
 
-// Perform the signature verification
-const isValid = await verifySignature(data, armoredSignature, armoredPublicKey);
-        if (isValid) {
-            console.log("The signature is valid.");
-            document.getElementById('contentDisplay').textContent = 'Signature is valid.';
-        } else {
-            console.log("The signature is invalid or does not match the provided public key.");
-            document.getElementById('contentDisplay').textContent = 'Signature is invalid or does not match the provided public key.';
-            return; // Stop execution if the signature is invalid
-        }
-    }
-            // Display the navigational HTML content inside the div
-            try {
-                const entries = await pfs.readdir('/foo');
-                if (entries.includes('index.html')) {
-                    document.getElementById('contentDisplay').innerHTML = 'Navigate to the cloned page <a href="/foo/index.html">here</a>';
+                    // Check for the existence of a signature
+
+                    if (!armoredSignature) {
+                        // Handle missing signature
+                        await deleteDirectoryContents('/foo');
+                        document.getElementById('contentDisplay').innerHTML = "No signature found. Repository is unverified and has been removed.";
+                        return; // Exit function to avoid further execution
+                    }
+
+                    // Perform the signature verification
+                    const isValid = await verifySignature(data, armoredSignature, armoredPublicKey);
+                    if (!isValid) {
+                        await deleteDirectoryContents('/foo'); // Delete repo due to failed verification
+                        document.getElementById('deleteBtn').style.display = 'none'; // No need to display delete button
+                        document.getElementById('contentDisplay').innerHTML = "The signature is invalid or does not match the provided public key. The repository has been removed.";
+                    } else {
+                        document.getElementById('contentDisplay').innerHTML = 'Signature is valid. <br> Navigate to the cloned page <a href="/foo/index.html">here</a>.';
+                    }
                 } else {
-                    document.getElementById('contentDisplay').innerHTML = 'Clone successful, but no index.html found in /foo.';
+                    await deleteDirectoryContents('/foo'); // Delete repo due to missing signature
+                    document.getElementById('deleteBtn').style.display = 'none'; // No need to display delete button
+                    document.getElementById('contentDisplay').innerHTML = "No signature found. Repository is unverified and has been removed.";
                 }
-                // Toggle button visibility
-                document.getElementById('cloneBtn').style.display = 'none';
-                document.getElementById('deleteBtn').style.display = 'inline';
-            } catch (err) {
-                console.log('Error reading /foo directory after cloning:', err);
+            } catch (error) {
+                console.error("Cloning failed:", error);
+                document.getElementById('contentDisplay').textContent = 'Failed to clone repository.';
+            } finally {
+                // Ensure clone button is displayed for new attempts
+                document.getElementById('cloneBtn').style.display = 'inline';
             }
-        };
+        } // End of cloneRepo function
 
         // Adjusted function to return the commit object instead of stringifying it
         async function loadClonedCommitObject() {
