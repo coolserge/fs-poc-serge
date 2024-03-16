@@ -173,13 +173,18 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
 
                     // Perform the signature verification
                     const isValid = await verifySignature(data, armoredSignature, armoredPublicKey);
-                    if (!isValid) {
-                        await deleteDirectoryContents('/foo'); // Delete repo due to failed verification
-                        document.getElementById('deleteBtn').style.display = 'none'; // No need to display delete button
-                        document.getElementById('contentDisplay').innerHTML = "The signature is invalid or does not match the provided public key. The repository has been removed.";
-                    } else {
+                    if (isValid) {
+                        // Signature is valid, update content and button display
                         document.getElementById('contentDisplay').innerHTML = 'Signature is valid. <br> Navigate to the cloned page <a href="/foo/index.html">here</a>.';
+                        document.getElementById('deleteBtn').style.display = 'inline'; // Display the delete button
+                        document.getElementById('cloneBtn').style.display = 'none'; // Hide the clone button
+                    } else {
+                        // Signature is invalid or does not match
+                        await deleteDirectoryContents('/foo'); // Optionally delete the repo
+                        document.getElementById('contentDisplay').innerHTML = "The signature is invalid or does not match the provided public key. The repository has been removed.";
+                        document.getElementById('deleteBtn').style.display = 'none'; // Hide the delete button
                     }
+
                 } else {
                     await deleteDirectoryContents('/foo'); // Delete repo due to missing signature
                     document.getElementById('deleteBtn').style.display = 'none'; // No need to display delete button
@@ -189,8 +194,7 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
                 console.error("Cloning failed:", error);
                 document.getElementById('contentDisplay').textContent = 'Failed to clone repository.';
             } finally {
-                // Ensure clone button is displayed for new attempts
-                document.getElementById('cloneBtn').style.display = 'inline';
+
             }
         } // End of cloneRepo function
 
