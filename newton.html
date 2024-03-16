@@ -10,6 +10,7 @@
     <script src="https://cdn.jsdelivr.net/npm/isomorphic-git@1.25.3/index.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/isomorphic-git@1.25.3/http/web/index.umd.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/idb-keyval/dist/umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/openpgp@5.11.1/dist/openpgp.min.js"></script>
     <title>LightningFS and Isomorphic-git POC</title>
 </head>
 
@@ -123,8 +124,54 @@
                 singleBranch: true,
                 depth: 1
             });
-            const commitSignature = await loadClonedCommitSignature(); // Load commit signature
-            console.log(commitSignature); // Debugging
+            const commitObject = await loadClonedCommitObject(); // Load commit signature
+            console.log(commitObject); // Debugging
+            // Assuming the payload and signature are being set for verification
+            if (commitObject) {
+                const data = commitObject.payload; // Directly use the payload from commitObject
+                const armoredSignature = commitObject.commit.gpgsig; // Directly use the gpgsig from commitObject
+                const armoredPublicKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+mQENBGX19UcBCACobhXY5SVtc+fM8j/XrMhEfikazwbjHcb0ErNwA1SaFhqlvntt
+6HJ5zbPu0JmtYqgI1h4gCsYPtr0ZQfcPO3xpG35WFe4DAcvqoZYUmRD/RuNabjvq
+soXt5wJoo7SUh7deXWWv1/EcKQ5YbJWkQ9+8PnuTnfty1ZNyDE/7ygxq1Eml9XhQ
+799sLks17OnFdY4ZtD1HvFrwN9Ri9K2sJG4zuEURcfG0CRnePr3hAPREgQS6y0eT
+6ioFb01SM3iJzIqhGaKPV/Q2pHI1WE+Fd4oMcKH1PpABLoIcEyDJyneAb4rcedoN
+p0pvhMesqpFX3jhczW/PXS1ZbiyiUTUPLDgvABEBAAG0MlNlcmdlIFNpbW9ub3Yg
+KE15IDIwNDggUEdQIGtleSkgPHNlcmdlZUBnbWFpbC5jb20+iQFOBBMBCgA4FiEE
+cIaaxqRAv96GV4a+J2bfNv9VIjEFAmX19UcCGwMFCwkIBwIGFQoJCAsCBBYCAwEC
+HgECF4AACgkQJ2bfNv9VIjEuVgf9EGatR5AP7ySFdPcTDDtYtg5RaDHZe3g8gRUe
+hgZ8VN74JrQbO82gPZZpvjIjXJe8aIr6QdPb5z9rQNsvhTW4TJGyxvWp475hEMQC
+Ve9s9QXj/A+iX2e4KLf+A0MANStC+QnMIV+ZqcIjB9OvmvyIfMyfha4RHtTuMKlP
+uwyXMbZdeVSExyQr4v07astdGQVuQQHKXrJG0T4x03YiNv7n9m+drepviebjZ9u7
+ZJvf0u1XfZoXj7+eX5rMfP+xq9Y42lflBc+ervgIFS0d9M7aOQrYU6LEif2eO6tt
+BMrN91PE9DdpirOrFjLy5z/U4vyaMSp0VIc/ftu79gu3q6zQ2bkBDQRl9fVHAQgA
+13T7ChjYeQVMtUfOzbgHQzPBbpdFgmy6fizKEc8lV47c+VTpuXGjdh3NCbIAyuOJ
+r0mqnWd/A6aD+CxXtlT/4RT5/MP1P8FGPQ1E1goBjjzlwl7JK2VAGJbZ2CpyysVI
+SpyjDD/D/J7hQ5Ps6kNYRIoLjFceablClmgVLKIlppx/jtZnQiGTFvFq0y2Phseq
+9FkTD4G10Cq6ps1FZz1j5uqWef3ESSaCUo2cJ5Q+q6lURf8g+StWM75XHmbjqxx8
+wL83Pn5T/IKUXOhgAs/DBADQh9lJZjLZXy+//q/+MAVws9e7O22S6H7wCN1BWa1P
+fvfwR9j3lBEDUS0wyedS7QARAQABiQE2BBgBCgAgFiEEcIaaxqRAv96GV4a+J2bf
+Nv9VIjEFAmX19UcCGwwACgkQJ2bfNv9VIjEYZwf+Jz5go04WvNjyvCb1Ni/bZ5cE
+72cPiLY+I5m60t1JhG/FBH/vgKyjYWXe1YUs9ZFI6+MeQIaIZAgU4p1E9o0iX1N2
+woTsohkGualR0c3bGb+9ve77LWC/6EbqdbMEMpoPHCSJ8W7ZCGRQ2du6G3Gt6PNu
+4yzc09JtI0Uwe7aaN4Bslx1cwoI0d2vigOMfqtL0eGIRP633uqklmcrVWKH73Ypc
+GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
+6Dd5ss1xcYlKxzd3DfSIVOvilqk3KAnZIDz7k8T7ImSaElOeDJXs36u/723qpg==
+=Q0Tf
+-----END PGP PUBLIC KEY BLOCK-----`;
+
+                verifySignature(data, armoredSignature, armoredPublicKey)
+                    .then(isValid => {
+                        if (isValid) {
+                            console.log("The signature is valid.");
+                            document.getElementById('contentDisplay').textContent = 'Signature is valid.';
+                        } else {
+                            console.log("The signature is invalid or does not match the provided public key.");
+                            document.getElementById('contentDisplay').textContent = 'Signature is invalid or does not match the provided public key.';
+                        }
+                    });
+            }
             // Display the navigational HTML content inside the div
             try {
                 const entries = await pfs.readdir('/foo');
@@ -141,8 +188,8 @@
             }
         };
 
-        // Function to load the most recent commit signature
-        async function loadClonedCommitSignature() {
+        // Adjusted function to return the commit object instead of stringifying it
+        async function loadClonedCommitObject() {
             try {
                 const commits = await git.log({
                     fs,
@@ -150,17 +197,38 @@
                     depth: 1,
                 });
                 if (commits.length > 0) {
-                    // Return the entire commit object as a JSON string
-                    return JSON.stringify(commits[0], null, 2); // Pretty print with 2 spaces
+                    return commits[0]; // Return the commit object directly
                 } else {
-                    return 'No commits found.';
+                    console.log('No commits found.');
+                    return null;
                 }
             } catch (error) {
-                console.error('Error loading commit signature:', error);
-                return 'Error loading commit signature.';
+                console.error('Error loading commit object:', error);
+                return null;
             }
         }
 
+
+        async function verifySignature(data, armoredSignature, armoredPublicKey) {
+            const publicKey = await openpgp.readKey({ armoredKey: armoredPublicKey });
+            const signature = await openpgp.readSignature({ armoredSignature });
+            const message = await openpgp.createMessage({ text: data });
+
+            try {
+                const verificationResult = await openpgp.verify({
+                    message,
+                    signature,
+                    verificationKeys: publicKey
+                });
+                const { verified, keyID } = verificationResult.signatures[0];
+                await verified; // This will reject if the signature is invalid
+                console.log(`Signature verified successfully with key ID ${keyID.toHex()}`);
+                return true;
+            } catch (e) {
+                console.error(`Signature verification failed: ${e}`);
+                return false;
+            }
+        }
 
 
         // Attach the event listener to the buttons
