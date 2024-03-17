@@ -180,7 +180,13 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
                     const isValid = await verifySignature(data, armoredSignature, armoredPublicKey);
                     if (isValid) {
                         // Signature is valid, update content and button display
+                        // After cloning, check for the existence of index.html
+                        const directoryContents = await pfs.readdir(directoryPath);
+                        if (directoryContents.includes('index.html')) {
                         document.getElementById('contentDisplay').innerHTML = `Signature is valid. <br> Navigate to the cloned page <a href="${directoryPath}/index.htm">here</a>.`;
+                        } else {
+                            document.getElementById('contentDisplay').innerHTML = 'Signature is valid. No index.html found in the cloned repo.';
+                        }
                         document.getElementById('deleteBtn').style.display = 'inline'; // Display the delete button
                         document.getElementById('cloneBtn').style.display = 'none'; // Hide the clone button
                     } else {
