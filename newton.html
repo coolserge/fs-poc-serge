@@ -19,8 +19,8 @@
         <h1 class="mb-3">LightningFS and Isomorphic-git POC</h1>
         <p>Navigate to the static page <a href="admin/index.html">here</a></p>
         <!-- Bootstrap styled buttons -->
-        <button id="cloneBtn" class="btn btn-primary mr-2" style="display: none;">Clone</button>
-        <button id="deleteBtn" class="btn btn-danger" style="display: none;">Delete</button>
+        <button id="cloneBtn" class="btn btn-primary mr-2" style="display: none;">Clone Repo</button>
+        <button id="deleteBtn" class="btn btn-danger" style="display: none;">Delete Repo</button>
         <!-- Div to display content -->
         <div id="contentDisplay" class="mt-3"></div>
     </div>
@@ -183,7 +183,7 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
                         // After cloning, check for the existence of index.html
                         const directoryContents = await pfs.readdir(directoryPath);
                         if (directoryContents.includes('index.html')) {
-                        document.getElementById('contentDisplay').innerHTML = `Signature is valid. <br> Navigate to the cloned page <a href="${directoryPath}/index.htm">here</a>.`;
+                            document.getElementById('contentDisplay').innerHTML = `Signature is valid. <br> Navigate to the cloned page <a href="${directoryPath}/index.html">here</a>.`;
                         } else {
                             document.getElementById('contentDisplay').innerHTML = 'Signature is valid. No index.html found in the cloned repo.';
                         }
