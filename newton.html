@@ -35,22 +35,22 @@
         const fs = new LightningFS('testfs');
         const pfs = fs.promises; // Use promises interface for cleaner async operations
 
-        // Function to check if /foo exists and display content if it does
+        // Function to check if the cloned directory exists and display content if it does
         async function checkAndDisplayContent(directoryPath) {
             try {
                 // Use directoryPath instead of a hardcoded value
                 const stats = await pfs.stat(directoryPath);
                 if (stats.isDirectory()) {
                     // Check if the directory is empty
-                    const entries = await pfs.readdir('/foo');
+                    const entries = await pfs.readdir(directoryPath);
                     if (entries.length > 0) {
                         // Directory is not empty, show Delete button
                         document.getElementById('deleteBtn').style.display = 'inline';
-                        // If /foo exists, display the navigational content without cloning
+                        // If the cloned directory exists, display the navigational content without cloning
                         if (entries.includes('index.html')) {
-                            document.getElementById('contentDisplay').innerHTML = 'Navigate to the cloned page <a href="/foo/index.html">here</a>';
+                            document.getElementById('contentDisplay').innerHTML = `Navigate to the cloned page <a href="${directoryPath}/index.html">here</a>`;
                         } else {
-                            document.getElementById('contentDisplay').innerHTML = 'No index.html found in /foo.';
+                            document.getElementById('contentDisplay').innerHTML = 'No index.html found in the cloned repo.';
                         }
                     } else {
                         // Directory is empty, show Clone button
@@ -61,9 +61,9 @@
                     document.getElementById('cloneBtn').style.display = 'inline';
                 }
             } catch (err) {
-                // /foo does not exist, show Clone button
+                // the cloned directory does not exist, show Clone button
                 document.getElementById('cloneBtn').style.display = 'inline';
-                console.log('/foo directory does not exist.');
+                console.log(`${directoryPath} directory does not exist.`);
             }
         }
 
@@ -82,19 +82,19 @@
             }));
         }
 
-        // Updated function to delete /foo directory and clear the content display
+        // Updated function to delete cloned directory and clear the content display
         async function deleteRepo(directoryPath) {
             try {
                 // Use directoryPath instead of hardcoded '/foo'
                 await deleteDirectoryContents(directoryPath);
                 await pfs.rmdir(directoryPath); //now remove the empty directory
-                console.log('/foo directory deleted successfully.');
+                console.log(`${directoryPath} directory deleted successfully.`);
                 document.getElementById('contentDisplay').innerHTML = ''; // Clear the display content
                 // Toggle button visibility
                 document.getElementById('deleteBtn').style.display = 'none';
                 document.getElementById('cloneBtn').style.display = 'inline';
             } catch (err) {
-                console.log('Failed to delete /foo directory:', err);
+                console.log(`Failed to delete ${directoryPath}.`, err);
             }
         }
 
@@ -171,7 +171,7 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
 
                     if (!armoredSignature) {
                         // Handle missing signature
-                        await deleteDirectoryContents('/foo');
+                        await deleteDirectoryContents(directoryPath);
                         document.getElementById('contentDisplay').innerHTML = "No signature found. Repository is unverified and has been removed.";
                         return; // Exit function to avoid further execution
                     }
@@ -180,18 +180,18 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
                     const isValid = await verifySignature(data, armoredSignature, armoredPublicKey);
                     if (isValid) {
                         // Signature is valid, update content and button display
-                        document.getElementById('contentDisplay').innerHTML = 'Signature is valid. <br> Navigate to the cloned page <a href="/foo/index.html">here</a>.';
+                        document.getElementById('contentDisplay').innerHTML = `Signature is valid. <br> Navigate to the cloned page <a href="${directoryPath}/index.htm">here</a>.`;
                         document.getElementById('deleteBtn').style.display = 'inline'; // Display the delete button
                         document.getElementById('cloneBtn').style.display = 'none'; // Hide the clone button
                     } else {
                         // Signature is invalid or does not match
-                        await deleteDirectoryContents('/foo'); // Optionally delete the repo
+                        await deleteDirectoryContents(directoryPath); // Optionally delete the repo
                         document.getElementById('contentDisplay').innerHTML = "The signature is invalid or does not match the provided public key. The repository has been removed.";
                         document.getElementById('deleteBtn').style.display = 'none'; // Hide the delete button
                     }
 
                 } else {
-                    await deleteDirectoryContents('/foo'); // Delete repo due to missing signature
+                    await deleteDirectoryContents(directoryPath); // Delete repo due to missing signature
                     document.getElementById('deleteBtn').style.display = 'none'; // No need to display delete button
                     document.getElementById('contentDisplay').innerHTML = "No signature found. Repository is unverified and has been removed.";
                 }
@@ -250,7 +250,7 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
         document.getElementById('cloneBtn').addEventListener('click', () => cloneRepo(repoUrl, directoryPath));
         document.getElementById('deleteBtn').addEventListener('click', () => deleteRepo(directoryPath));
 
-        // Check if /foo exists and display content on page load
+        // Check if the cloned directory exists and display content on page load
         checkAndDisplayContent(directoryPath);
     </script>
 </body>
