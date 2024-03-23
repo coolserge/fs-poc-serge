@@ -51,7 +51,7 @@
                         document.getElementById('deleteBtn').style.display = 'inline';
                         // If the cloned directory exists, display the navigational content without cloning
                         if (entries.includes('index.html')) {
-                            document.getElementById('contentDisplay').innerHTML = `Navigate to the cloned page <a href="${directoryPath}/index.html">here</a>`;
+                            document.getElementById('contentDisplay').innerHTML = `Navigate to the cloned page <a href="/">here</a>`;
                         } else {
                             document.getElementById('contentDisplay').innerHTML = 'No index.html found in the cloned repo.';
                         }
@@ -189,7 +189,7 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
                         // After cloning, check for the existence of index.html
                         const directoryContents = await pfs.readdir(directoryPath);
                         if (directoryContents.includes('index.html')) {
-                            document.getElementById('contentDisplay').innerHTML = `Signature is valid. <br> Navigate to the cloned page <a href="${directoryPath}/index.html">here</a>.`;
+                            document.getElementById('contentDisplay').innerHTML = `Signature is valid. <br> Navigate to the cloned page <a href="/">here</a>.`;
                         } else {
                             document.getElementById('contentDisplay').innerHTML = 'Signature is valid. No index.html found in the cloned repo.';
                         }
