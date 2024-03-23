@@ -71,7 +71,7 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
         const pfs = fs.promises; // Use promises interface for cleaner async operations
 
         // Function to check if the cloned directory exists and display content if it does
-        async function checkAndDisplayContent(directoryPath) {
+        async function checkAndDisplayContent(directoryPath, contentDisplayId) {
             try {
                 const stats = await pfs.stat(directoryPath);
                 if (stats.isDirectory()) {
@@ -111,7 +111,7 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
         }
 
         // Updated function to delete cloned directory and clear the content display
-        async function deleteRepo(directoryPath) {
+        async function deleteRepo(directoryPath, contentDisplayId) {
             try {
                 // Use directoryPath instead of hardcoded '/foo'
                 await deleteDirectoryContents(directoryPath);
@@ -146,7 +146,7 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
         }
 
         // Clone function
-        async function cloneRepo(repoUrl, directoryPath) {
+        async function cloneRepo(repoUrl, directoryPath, contentDisplayId, corsProxy, armoredPublicKey) {
             try {
                 await git.clone({
                     fs,
@@ -251,11 +251,11 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
 
 
         // Attach the event listener to the buttons
-        document.getElementById('cloneBtn').addEventListener('click', () => cloneRepo(repoUrl, directoryPath));
-        document.getElementById('deleteBtn').addEventListener('click', () => deleteRepo(directoryPath));
+    document.getElementById('cloneBtn').addEventListener('click', () => cloneRepo(repoUrl, directoryPath, contentDisplayId, corsProxy, armoredPublicKey));
+    document.getElementById('deleteBtn').addEventListener('click', () => deleteRepo(directoryPath, contentDisplayId));
 
-        // Check if the cloned directory exists and display content on page load
-        checkAndDisplayContent(directoryPath);
+    // Initial call also needs to pass the necessary arguments
+    checkAndDisplayContent(directoryPath, contentDisplayId);
     </script>
 </body>
 
