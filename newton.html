@@ -37,6 +37,7 @@
         const fs = new LightningFS('testfs');
         const pfs = fs.promises; // Use promises interface for cleaner async operations
 
+
         // Function to check if the cloned directory exists and display content if it does
         async function checkAndDisplayContent(directoryPath) {
             try {
@@ -131,6 +132,9 @@
                     singleBranch: true,
                     depth: 1
                 });
+                const dir = await idbKeyval.set('__dir__','/'+directoryPath);
+                // update code to update the url here to remove foo or directoryPath
+
                 const commitObject = await loadClonedCommitObject(directoryPath); // Load commit signature
                 console.log(commitObject); // Debugging
                 // Assuming the payload and signature are being set for verification
