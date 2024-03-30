@@ -33,7 +33,7 @@
                 <button type="submit" class="btn btn-primary mb-2">Clone Repo</button>
             </form>
         </div>
-
+        <div id="repoUrlError" class="alert alert-warning" role="alert" style="display: none;">Please fill in the repository URL.</div>
         <!-- Separate Div for Delete Button -->
         <div id="deleteControlPanel" style="display: none;">
             <button id="deleteBtn" class="btn btn-danger">Delete Repo</button>
@@ -275,10 +275,11 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
             event.preventDefault(); // Prevent the form from submitting in the traditional way
             const repoUrl = document.getElementById('repoUrl').value; // Get the repo URL from the input field
             if (repoUrl) {
+                document.getElementById('repoUrlError').style.display = 'none'; // Hide error message when URL is present
                 await cloneRepo(repoUrl, directoryPath, contentDisplayId, corsProxy, armoredPublicKey);
                 //await checkAndDisplayContent(directoryPath, contentDisplayId); // Check and update UI based on the new repo state
             } else {
-                alert('Please fill in the repository URL.'); // Prompt the user if the input is empty
+                document.getElementById('repoUrlError').style.display = 'block'; // Show error message
             }
         });
 
