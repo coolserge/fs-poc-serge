@@ -10,11 +10,12 @@ const fs = new LightningFS('testfs');
 const app = new wayne.Wayne();
 
 const test = url => {
-  if (url.host !== self.location.hostname) {
-      return false;
-  }
-  const path = url.pathname;
-  return !path.match(/admin|sw.js|newton.html|favicon.ico/) && !path.startsWith('/content');
+    console.log(url);
+    if (url.hostname !== self.location.hostname) {
+        return false;
+    }
+    const path = url.pathname;
+    return !path.match(/admin|sw.js|newton.html|(^\/$)/) && !path.startsWith('/content');
 };
 
 const dir = async () => {
