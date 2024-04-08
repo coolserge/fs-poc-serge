@@ -207,7 +207,7 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
                     if (!armoredSignature) {
                         // Handle missing signature
                         await deleteDirectoryContents(directoryPath);
-                        document.getElementById('combinedDisplayAndDelele').querySelector('#contentDisplay').innerHTML += "No signature found. Repository is unverified and has been removed.<br>";
+                        document.getElementById('combinedDisplayAndDelele').querySelector('#contentDisplay').innerHTML = "No signature found. Repository is unverified and has been removed.<br>";
                         return; // Exit function to avoid further execution
                     }
 
@@ -217,27 +217,27 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
                         // Signature is valid, update content and button display
                         const directoryContents = await pfs.readdir(directoryPath);
                         if (directoryContents.includes('index.html')) {
-                            document.getElementById('combinedDisplayAndDelele').querySelector('#contentDisplay').innerHTML += `Signature is valid. <br> Navigate to the cloned page <a href="${directoryPath}/index.html">here</a>.<br>`;
+                            document.getElementById('combinedDisplayAndDelele').querySelector('#contentDisplay').innerHTML = `Signature is valid. <br> Navigate to the cloned page <a href="${directoryPath}/index.html">here</a>.<br>`;
                         } else {
-                            document.getElementById('combinedDisplayAndDelele').querySelector('#contentDisplay').innerHTML += 'Signature is valid. No index.html found in the cloned repo.<br>';
+                            document.getElementById('combinedDisplayAndDelele').querySelector('#contentDisplay').innerHTML = 'Signature is valid. No index.html found in the cloned repo.<br>';
                         }
                         document.getElementById('combinedDisplayAndDelele').querySelector('#deleteControlPanel').style.display = 'block'; // Show the delete button
                         document.getElementById('cloneControlPanel').style.display = 'none'; // Hide the clone controls
                     } else {
                         // Signature is invalid or does not match
                         await deleteDirectoryContents(directoryPath); // Optionally delete the repo
-                        document.getElementById('combinedDisplayAndDelele').querySelector('#contentDisplay').innerHTML += "The signature is invalid or does not match the provided public key. The repository has been removed.<br>";
+                        document.getElementById('combinedDisplayAndDelele').querySelector('#contentDisplay').innerHTML = "The signature is invalid or does not match the provided public key. The repository has been removed.<br>";
                         document.getElementById('combinedDisplayAndDelele').querySelector('#deleteControlPanel').style.display = 'none'; // Ensure correct visibility if needed
                     }
 
                 } else {
                     await deleteDirectoryContents(directoryPath); // Delete repo due to missing signature
-                    document.getElementById('combinedDisplayAndDelele').querySelector('#contentDisplay').innerHTML += "No signature found. Repository is unverified and has been removed.<br>";
+                    document.getElementById('combinedDisplayAndDelele').querySelector('#contentDisplay').innerHTML = "No signature found. Repository is unverified and has been removed.<br>";
                     document.getElementById('combinedDisplayAndDelele').querySelector('#deleteControlPanel').style.display = 'none'; // No need to display delete button
                 }
             } catch (error) {
                 console.error("Cloning failed:", error);
-                document.getElementById('combinedDisplayAndDelele').querySelector('#contentDisplay').innerHTML += 'Failed to clone repository.<br>';
+                document.getElementById('combinedDisplayAndDelele').querySelector('#contentDisplay').innerHTML = 'Failed to clone repository.<br>';
                 // Ensure clone control panel is visible for retry, and delete control panel is not
                 document.getElementById('cloneControlPanel').style.display = 'block';
                 document.getElementById('combinedDisplayAndDelele').querySelector('#deleteControlPanel').style.display = 'none';
