@@ -1,6 +1,6 @@
 importScripts(
     'https://cdn.jsdelivr.net/npm/@jcubic/wayne/index.umd.min.js',
-    'https://cdn.jsdelivr.net/npm/idb-keyval/dist/umd.js',
+    'https://cdn.jsdelivr.net/npm/idb-keyval@6.2.0/dist/umd.js',
     'https://cdn.jsdelivr.net/npm/@isomorphic-git/lightning-fs@4.6.0/dist/lightning-fs.min.js',
     'https://cdn.jsdelivr.net/gh/jcubic/static@master/js/path.js',
     'https://cdn.jsdelivr.net/gh/jcubic/static@master/js/mime.min.js'
