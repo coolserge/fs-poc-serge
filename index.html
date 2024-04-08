@@ -97,17 +97,19 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
                 });
                 const dirStats = await Promise.all(dirStatPromises);
                 const directories = dirStats.filter(({ isDirectory }) => isDirectory).map(({ entry }) => entry);
+                console.log(directories); // Debugging
 
                 if (directories.length > 0) {
                     let contentDisplay = '';
                     for (const dir of directories) {
-                        const dirPath = `/${dir}`;
-                        const dirEntries = await pfs.readdir(dirPath);
+                        let directoryPath = `/${dir}`;
+                        console.log("directoryPath inside checkAndDisplayContents is " + directoryPath); // Debugging
+                        const dirEntries = await pfs.readdir(directoryPath);
                         if (dirEntries.length > 0) {
                             document.getElementById('combinedDisplayAndDelele').querySelector('#deleteControlPanel').style.display = 'block';
                             document.getElementById('cloneControlPanel').style.display = 'none';
                             if (dirEntries.includes('index.html')) {
-                                contentDisplay += `<h3>${dir}</h3>Navigate to the cloned page <a href="${dirPath}/index.html">here</a><br>`;
+                                contentDisplay += `<h3>${dir}</h3>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
                             } else {
                                 contentDisplay += `<h3>${dir}</h3>No index.html found in this directory.<br>`;
                             }
@@ -287,7 +289,6 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
             }
         }
 
-
         // Attach the event listener to the buttons
         document.getElementById('repoForm').addEventListener('submit', async function (event) {
             event.preventDefault(); // Prevent the form from submitting in the traditional way
@@ -302,12 +303,14 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
 
         // Updated deleteRepo function
         document.getElementById('deleteBtn').addEventListener('click', async function () {
-            const directoryPath = `/${document.getElementById('repoUrl').value.split('/').pop().replace(/\.git$/, '')}`;
+            //const directoryPath = `/${document.getElementById('repoUrl').value.split('/').pop().replace(/\.git$/, '')}`; //use what is already defined
+            const directoryPath = "/" + await pfs.readdir('/');
             await deleteRepo(directoryPath, contentDisplayId);
         });
 
         // Perform an initial check to set up the UI appropriately based on the current state
         checkAndDisplayContent();
+
 
     </script>
 </body>
