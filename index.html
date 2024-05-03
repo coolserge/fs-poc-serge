@@ -101,11 +101,13 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
 
                 if (directories.length > 0) {
                     let contentDisplay = '';
+                    let allDirsEmpty = true; // Flag to track if all directories are empty
                     for (const dir of directories) {
                         let directoryPath = `/${dir}`;
                         console.log("directoryPath inside checkAndDisplayContents is " + directoryPath); // Debugging
                         const dirEntries = await pfs.readdir(directoryPath);
                         if (dirEntries.length > 0) {
+                            allDirsEmpty = false; // At least one directory has content
                             document.getElementById('combinedDisplayAndDelele').querySelector('#deleteControlPanel').style.display = 'block';
                             document.getElementById('cloneControlPanel').style.display = 'none';
                             if (dirEntries.includes('index.html')) {
@@ -115,7 +117,18 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
                             }
                         }
                     }
-                    document.getElementById('combinedDisplayAndDelele').querySelector('#contentDisplay').innerHTML = contentDisplay;
+                    // If all directories are empty, delete them and show the clone control panel
+                    if (directories.length > 0 && allDirsEmpty) {
+                        for (const dir of directories) {
+                            await deleteRepo(`/${dir}`, 'contentDisplay'); // Delete the directory
+                        }
+                        // Show the clone control panel
+                        document.getElementById('cloneControlPanel').style.display = 'block';
+                        document.getElementById('combinedDisplayAndDelele').querySelector('#deleteControlPanel').style.display = 'none';
+                    } else {
+                        // Update content display if at least one directory has content
+                        document.getElementById('combinedDisplayAndDelele').querySelector('#contentDisplay').innerHTML = contentDisplay;
+                    }
                 } else {
                     // If there are no directories, show the clone controls
                     document.getElementById('cloneControlPanel').style.display = 'block';
@@ -128,6 +141,7 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
                 console.log('Error reading directories:', err);
             }
         }
+
 
         // Updated function to recursively delete all files and directories within a given path
         async function deleteDirectoryContents(path) {
