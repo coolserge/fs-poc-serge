@@ -14,6 +14,14 @@
     <script src="https://cdn.jsdelivr.net/npm/idb-keyval/dist/umd.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/openpgp@5.11.1/dist/openpgp.min.js"></script>
     <title>LightningFS and Isomorphic-git POC</title>
+    <style>
+        .repo-container {
+            border: 1px solid #ccc;     /* Light grey border */
+            border-radius: 5px;         /* Rounded corners */
+            padding: 10px;              /* Padding inside the container */
+            margin-bottom: 10px;        /* Margin at the bottom for spacing between containers */
+        }
+    </style>
 </head>
 
 <body>
@@ -36,7 +44,7 @@
         <div id="repoUrlError" class="alert alert-warning" role="alert" style="display: none;">Please fill in the
             repository URL.</div>
         <!-- Combined Div for Delete Button and Content Display -->
-        <div id="reposContainer" class="mt-3"></div>
+        <div id="reposContainer" class="mt-3 repo-container"></div>
     </div>
     <script>
 
