@@ -36,12 +36,7 @@
         <div id="repoUrlError" class="alert alert-warning" role="alert" style="display: none;">Please fill in the
             repository URL.</div>
         <!-- Combined Div for Delete Button and Content Display -->
-        <div id="combinedDisplayAndDelele" class="mt-3">
-            <div id="deleteControlPanel" style="display: none;">
-                <button id="deleteBtn" class="btn btn-danger">Delete Repo</button>
-            </div>
-            <div id="contentDisplay"></div>
-        </div>
+        <div id="reposContainer" class="mt-3"></div>
     </div>
     <script>
 
@@ -97,47 +92,45 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
                 });
                 const dirStats = await Promise.all(dirStatPromises);
                 const directories = dirStats.filter(({ isDirectory }) => isDirectory).map(({ entry }) => entry);
-                console.log(directories); // Debugging
+                console.log(directories);
+
+                const reposContainer = document.getElementById('reposContainer');
+                reposContainer.innerHTML = ''; // Clear existing content
+
+                const cloneControlPanel = document.getElementById('cloneControlPanel');
+                cloneControlPanel.style.display = 'block'; // Always show the cloneControlPanel
 
                 if (directories.length > 0) {
-                    let contentDisplay = '';
-                    let allDirsEmpty = true; // Flag to track if all directories are empty
                     for (const dir of directories) {
                         let directoryPath = `/${dir}`;
-                        console.log("directoryPath inside checkAndDisplayContents is " + directoryPath); // Debugging
                         const dirEntries = await pfs.readdir(directoryPath);
+
                         if (dirEntries.length > 0) {
-                            allDirsEmpty = false; // At least one directory has content
-                            document.getElementById('combinedDisplayAndDelele').querySelector('#deleteControlPanel').style.display = 'block';
-                            document.getElementById('cloneControlPanel').style.display = 'none';
+                            const repoContainer = document.createElement('div');
+                            repoContainer.classList.add('repo-container', 'mb-3');
+                            reposContainer.appendChild(repoContainer);
+
+                            const deleteBtn = document.createElement('button');
+                            deleteBtn.textContent = 'Delete Repo';
+                            deleteBtn.classList.add('btn', 'btn-danger', 'mb-2');
+                            deleteBtn.addEventListener('click', async () => {
+                                await deleteRepo(directoryPath, repoContainer);
+                            });
+                            repoContainer.appendChild(deleteBtn);
+
+                            const contentDisplay = document.createElement('div');
                             if (dirEntries.includes('index.html')) {
-                                contentDisplay += `<h3>${dir}</h3>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
+                                contentDisplay.innerHTML = `<h3>${dir}</h3>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
                             } else {
-                                contentDisplay += `<h3>${dir}</h3>No index.html found in this directory.<br>`;
+                                contentDisplay.innerHTML = `<h3>${dir}</h3>No index.html found in this directory.<br>`;
                             }
+                            repoContainer.appendChild(contentDisplay);
+
+                            reposContainer.appendChild(repoContainer);
                         }
                     }
-                    // If all directories are empty, delete them and show the clone control panel
-                    if (directories.length > 0 && allDirsEmpty) {
-                        for (const dir of directories) {
-                            await deleteRepo(`/${dir}`, 'contentDisplay'); // Delete the directory
-                        }
-                        // Show the clone control panel
-                        document.getElementById('cloneControlPanel').style.display = 'block';
-                        document.getElementById('combinedDisplayAndDelele').querySelector('#deleteControlPanel').style.display = 'none';
-                    } else {
-                        // Update content display if at least one directory has content
-                        document.getElementById('combinedDisplayAndDelele').querySelector('#contentDisplay').innerHTML = contentDisplay;
-                    }
-                } else {
-                    // If there are no directories, show the clone controls
-                    document.getElementById('cloneControlPanel').style.display = 'block';
-                    document.getElementById('combinedDisplayAndDelele').querySelector('#deleteControlPanel').style.display = 'none';
                 }
             } catch (err) {
-                // If an error occurs, show the clone controls
-                document.getElementById('cloneControlPanel').style.display = 'block';
-                document.getElementById('combinedDisplayAndDelele').querySelector('#deleteControlPanel').style.display = 'none';
                 console.log('Error reading directories:', err);
             }
         }
@@ -159,24 +152,20 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
         }
 
         // Updated function to delete cloned directory and clear the content display
-        async function deleteRepo(directoryPath, contentDisplayId) {
+        async function deleteRepo(directoryPath, repoContainer) {
             try {
-                if (directoryPath !== '/') { // Check if directoryPath is not the root directory
+                if (directoryPath !== '/') {
                     await deleteDirectoryContents(directoryPath);
                     await pfs.rmdir(directoryPath);
                     console.log(`${directoryPath} directory deleted successfully.`);
-                    document.getElementById('combinedDisplayAndDelele').querySelector('#contentDisplay').innerHTML = `${directoryPath} directory deleted successfully.<br>`;
+                    repoContainer.remove(); // Remove the repository container
                 } else {
                     console.log('Cannot delete the root directory.');
                 }
-                document.getElementById('combinedDisplayAndDelele').querySelector('#deleteControlPanel').style.display = 'none';
-                document.getElementById('cloneControlPanel').style.display = 'block'; // Correctly toggle visibility upon deletion
             } catch (err) {
                 console.log(`Failed to delete ${directoryPath}.`, err);
-                document.getElementById('combinedDisplayAndDelele').querySelector('#contentDisplay').innerHTML += `Failed to delete ${directoryPath}.<br>`;
             }
-            // Call checkAndDisplayContent after deleting to update the UI
-            //await checkAndDisplayContent();
+            checkAndDisplayContent(); // Call checkAndDisplayContent to update the UI
         }
 
         function registerServiceWorker() {
@@ -198,67 +187,73 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
         }
 
         // Updated cloneRepo function
-        async function cloneRepo(repoUrl, contentDisplayId, corsProxy, armoredPublicKey) {
+        async function cloneRepo(repoUrl, corsProxy, armoredPublicKey) {
             const directoryPath = `/${repoUrl.split('/').pop().replace(/\.git$/, '')}`;
 
             try {
                 await git.clone({
                     fs,
                     http: GitHttp,
-                    dir: directoryPath, // Use dynamic directoryPath
-                    corsProxy: corsProxy, // Added our proxy server
-                    url: repoUrl, // Use repoUrl argument
+                    dir: directoryPath,
+                    corsProxy: corsProxy,
+                    url: repoUrl,
                     singleBranch: true,
                     depth: 1
                 });
-                const commitObject = await loadClonedCommitObject(directoryPath); // Load commit signature
-                console.log(commitObject); // Debugging
+
+                const commitObject = await loadClonedCommitObject(directoryPath);
+                console.log("Commit object loaded:", commitObject);
 
                 if (commitObject) {
-                    const data = commitObject.payload; // Directly use the payload from commitObject
-                    const armoredSignature = commitObject.commit.gpgsig; // Directly use the gpgsig from commitObject
+                    const data = commitObject.payload;
+                    const armoredSignature = commitObject.commit.gpgsig;
 
                     if (!armoredSignature) {
-                        // Handle missing signature
                         await deleteDirectoryContents(directoryPath);
-                        document.getElementById('combinedDisplayAndDelele').querySelector('#contentDisplay').innerHTML = "No signature found. Repository is unverified and has been removed.<br>";
-                        return; // Exit function to avoid further execution
+                        console.log("No signature found. Repository is unverified and has been removed.");
+                        return;
                     }
 
-                    // Perform the signature verification
                     const isValid = await verifySignature(data, armoredSignature, armoredPublicKey);
+                    console.log("Verification complete, result:", isValid);
                     if (isValid) {
-                        // Signature is valid, update content and button display
+                        console.log('Signature is valid. Updating the UI.');
+                        const repoContainer = document.createElement('div');
+                        repoContainer.classList.add('repo-container', 'mb-3');
+
+                        const contentDisplay = document.createElement('div');
                         const directoryContents = await pfs.readdir(directoryPath);
                         if (directoryContents.includes('index.html')) {
-                            document.getElementById('combinedDisplayAndDelele').querySelector('#contentDisplay').innerHTML = `Signature is valid. <br> Navigate to the cloned page <a href="${directoryPath}/index.html">here</a>.<br>`;
+                            contentDisplay.innerHTML = `<h3>${directoryPath.slice(1)}</h3>Signature is valid. <br> Navigate to the cloned page <a href="${directoryPath}/index.html">here</a>.<br>`;
                         } else {
-                            document.getElementById('combinedDisplayAndDelele').querySelector('#contentDisplay').innerHTML = 'Signature is valid. No index.html found in the cloned repo.<br>';
+                            contentDisplay.innerHTML = `<h3>${directoryPath.slice(1)}</h3>Signature is valid. No index.html found in the cloned repo.<br>`;
                         }
-                        document.getElementById('combinedDisplayAndDelele').querySelector('#deleteControlPanel').style.display = 'block'; // Show the delete button
-                        document.getElementById('cloneControlPanel').style.display = 'none'; // Hide the clone controls
-                    } else {
-                        // Signature is invalid or does not match
-                        await deleteDirectoryContents(directoryPath); // Optionally delete the repo
-                        document.getElementById('combinedDisplayAndDelele').querySelector('#contentDisplay').innerHTML = "The signature is invalid or does not match the provided public key. The repository has been removed.<br>";
-                        document.getElementById('combinedDisplayAndDelele').querySelector('#deleteControlPanel').style.display = 'none'; // Ensure correct visibility if needed
-                    }
 
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.textContent = 'Delete Repo';
+                        deleteBtn.classList.add('btn', 'btn-danger', 'mb-2');
+                        deleteBtn.addEventListener('click', async () => {
+                            await deleteRepo(directoryPath, repoContainer);
+                        });
+
+                        repoContainer.appendChild(deleteBtn);
+                        repoContainer.appendChild(contentDisplay);
+
+                        const reposContainer = document.getElementById('reposContainer');
+                        reposContainer.appendChild(repoContainer);
+                    } else {
+                        await deleteDirectoryContents(directoryPath);
+                        console.log("The signature is invalid or does not match the provided public key. The repository has been removed.");
+                    }
                 } else {
-                    await deleteDirectoryContents(directoryPath); // Delete repo due to missing signature
-                    document.getElementById('combinedDisplayAndDelele').querySelector('#contentDisplay').innerHTML = "No signature found. Repository is unverified and has been removed.<br>";
-                    document.getElementById('combinedDisplayAndDelele').querySelector('#deleteControlPanel').style.display = 'none'; // No need to display delete button
+                    await deleteDirectoryContents(directoryPath);
+                    console.log("No commit object found. Repository is unverified and has been removed.");
                 }
             } catch (error) {
                 console.error("Cloning failed:", error);
-                document.getElementById('combinedDisplayAndDelele').querySelector('#contentDisplay').innerHTML = 'Failed to clone repository.<br>';
-                // Ensure clone control panel is visible for retry, and delete control panel is not
-                document.getElementById('cloneControlPanel').style.display = 'block';
-                document.getElementById('combinedDisplayAndDelele').querySelector('#deleteControlPanel').style.display = 'none';
             }
-            // Call checkAndDisplayContent after cloning to update the UI
-            //await checkAndDisplayContent();
         }
+
         // End of cloneRepo function
 
         // Adjusted function to return the commit object instead of stringifying it
@@ -305,22 +300,16 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
 
         // Attach the event listener to the buttons
         document.getElementById('repoForm').addEventListener('submit', async function (event) {
-            event.preventDefault(); // Prevent the form from submitting in the traditional way
-            const repoUrl = document.getElementById('repoUrl').value; // Get the repo URL from the input field
+            event.preventDefault();
+            const repoUrl = document.getElementById('repoUrl').value;
             if (repoUrl) {
-                document.getElementById('repoUrlError').style.display = 'none'; // Hide error message when URL is present
-                await cloneRepo(repoUrl, contentDisplayId, corsProxy, armoredPublicKey);
+                document.getElementById('repoUrlError').style.display = 'none';
+                await cloneRepo(repoUrl, corsProxy, armoredPublicKey);
             } else {
-                document.getElementById('repoUrlError').style.display = 'block'; // Show error message
+                document.getElementById('repoUrlError').style.display = 'block';
             }
         });
 
-        // Updated deleteRepo function
-        document.getElementById('deleteBtn').addEventListener('click', async function () {
-            //const directoryPath = `/${document.getElementById('repoUrl').value.split('/').pop().replace(/\.git$/, '')}`; //use what is already defined
-            const directoryPath = "/" + await pfs.readdir('/');
-            await deleteRepo(directoryPath, contentDisplayId);
-        });
 
         // Perform an initial check to set up the UI appropriately based on the current state
         checkAndDisplayContent();
