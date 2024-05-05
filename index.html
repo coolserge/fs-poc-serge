@@ -190,6 +190,23 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
         async function cloneRepo(repoUrl, corsProxy, armoredPublicKey) {
             const directoryPath = `/${repoUrl.split('/').pop().replace(/\.git$/, '')}`;
 
+            // Check if the directory already exists
+            try {
+                const dirExists = await pfs.stat(directoryPath);
+                console.log(`${directoryPath} exists. Deleting old contents.`);
+                await deleteDirectoryContents(directoryPath);
+                await pfs.rmdir(directoryPath);
+                console.log("Old directory contents were overwritten.");
+                checkAndDisplayContent(); // Update the UI to reflect the deletion
+            } catch (error) {
+                if (error.code !== 'ENOENT') {
+                    console.error("Error checking directory existence:", error);
+                    return; // Stops further execution if the error is not about the non-existence of the directory
+                }
+                // Directory does not exist, no need to delete anything
+            }
+
+            // Proceed with cloning
             try {
                 await git.clone({
                     fs,
@@ -202,8 +219,6 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
                 });
 
                 const commitObject = await loadClonedCommitObject(directoryPath);
-                console.log("Commit object loaded:", commitObject);
-
                 if (commitObject) {
                     const data = commitObject.payload;
                     const armoredSignature = commitObject.commit.gpgsig;
@@ -215,7 +230,6 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
                     }
 
                     const isValid = await verifySignature(data, armoredSignature, armoredPublicKey);
-                    console.log("Verification complete, result:", isValid);
                     if (isValid) {
                         console.log('Signature is valid. Updating the UI.');
                         const repoContainer = document.createElement('div');
@@ -253,6 +267,7 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
                 console.error("Cloning failed:", error);
             }
         }
+
 
         // End of cloneRepo function
 
