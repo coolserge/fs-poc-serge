@@ -16,10 +16,14 @@
     <title>LightningFS and Isomorphic-git POC</title>
     <style>
         .repo-container {
-            border: 1px solid #ccc;     /* Light grey border */
-            border-radius: 5px;         /* Rounded corners */
-            padding: 10px;              /* Padding inside the container */
-            margin-bottom: 10px;        /* Margin at the bottom for spacing between containers */
+            border: 1px solid #ccc;
+            /* Light grey border */
+            border-radius: 5px;
+            /* Rounded corners */
+            padding: 10px;
+            /* Padding inside the container */
+            margin-bottom: 10px;
+            /* Margin at the bottom for spacing between containers */
         }
     </style>
 </head>
@@ -210,8 +214,9 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
                 if (error.code !== 'ENOENT') {
                     console.error("Error checking directory existence:", error);
                     return; // Stops further execution if the error is not about the non-existence of the directory
+                } else {
+                    console.log("Directory does not exist, no need to delete.");
                 }
-                // Directory does not exist, no need to delete anything
             }
 
             // Proceed with cloning
@@ -233,6 +238,7 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
 
                     if (!armoredSignature) {
                         await deleteDirectoryContents(directoryPath);
+                        await pfs.rmdir(directoryPath);
                         console.log("No signature found. Repository is unverified and has been removed.");
                         return;
                     }
@@ -265,14 +271,19 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
                         reposContainer.appendChild(repoContainer);
                     } else {
                         await deleteDirectoryContents(directoryPath);
+                        await pfs.rmdir(directoryPath);
                         console.log("The signature is invalid or does not match the provided public key. The repository has been removed.");
                     }
                 } else {
                     await deleteDirectoryContents(directoryPath);
+                    await pfs.rmdir(directoryPath);
                     console.log("No commit object found. Repository is unverified and has been removed.");
                 }
             } catch (error) {
                 console.error("Cloning failed:", error);
+                await deleteDirectoryContents(directoryPath);
+                await pfs.rmdir(directoryPath);
+                console.log("Failed directory was removed.");
             }
         }
 
