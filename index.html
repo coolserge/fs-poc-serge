@@ -149,6 +149,8 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
                 } else { // Hide the deleteAllRepos button if there are no directories
                     document.getElementById('deleteAllRepos').style.display = 'none';
                 }
+                // Call the function to list all directory contents
+                listAllDirectoryContents();
             } catch (err) {
                 console.log('Error reading directories:', err);
             }
@@ -352,6 +354,35 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
             }
         }
 
+        //debug function to list all directory contents for cloned repositories
+        async function listAllDirectoryContents() {
+            try {
+                const rootDirEntries = await pfs.readdir('/');
+                for (const entry of rootDirEntries) {
+                    const stats = await pfs.stat(`/${entry}`);
+                    if (stats.isDirectory()) {
+                        const dirPath = `/${entry}`;
+                        const dirContents = await pfs.readdir(dirPath);
+                        console.log(`Contents of ${dirPath}:`, dirContents);
+
+                        if (dirContents.includes('icon.png')) {
+                            try {
+                                const iconPath = `${dirPath}/icon.png`;
+                                const iconContents = await pfs.readFile(iconPath, 'utf8');
+                                console.log(`Contents of ${iconPath}:`, iconContents);
+                            } catch (readError) {
+                                console.error(`Error reading ${dirPath}/icon.png:`, readError);
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Error listing directory contents:', err);
+            }
+        }
+
+
+
         // Attach the event listener to the buttons
         document.getElementById('repoForm').addEventListener('submit', async function (event) {
             event.preventDefault();
@@ -372,7 +403,6 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
 
         // Perform an initial check to set up the UI appropriately based on the current state
         checkAndDisplayContent();
-
 
     </script>
 </body>
