@@ -364,16 +364,6 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
                         const dirPath = `/${entry}`;
                         const dirContents = await pfs.readdir(dirPath);
                         console.log(`Contents of ${dirPath}:`, dirContents);
-
-                        if (dirContents.includes('icon.png')) {
-                            try {
-                                const iconPath = `${dirPath}/icon.png`;
-                                const iconContents = await pfs.readFile(iconPath, 'utf8');
-                                console.log(`Contents of ${iconPath}:`, iconContents);
-                            } catch (readError) {
-                                console.error(`Error reading ${dirPath}/icon.png:`, readError);
-                            }
-                        }
                     }
                 }
             } catch (err) {
