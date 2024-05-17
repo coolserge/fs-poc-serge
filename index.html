@@ -35,20 +35,30 @@
             <p>Navigate to the static page <a href="admin/index.html">here</a></p>
         </div>
         <!-- Bootstrap styled buttons -->
-        <!-- Div for Repository URL Input and Clone Repo Button -->
+        <!-- Div for Repository URL Input, Optional pgp key and Clone Repo Button -->
         <div id="cloneControlPanel" style="display: none;">
-            <form id="repoForm" class="form-inline mb-3">
-                <div class="form-group mx-sm-3 mb-2">
-                    <label for="repoUrl" class="sr-only">Repository URL</label>
-                    <input type="url" class="form-control" id="repoUrl" placeholder="Enter repository URL">
+            <form id="repoForm" class="mb-3">
+                <div class="form-row align-items-center">
+                    <div class="col-auto">
+                        <label for="repoUrl" class="sr-only">Repository URL</label>
+                        <input type="url" class="form-control mb-2" id="repoUrl" placeholder="Enter repository URL">
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-primary mb-2">Clone Repo</button>
+                    </div>
                 </div>
-                <button type="submit" class="btn btn-primary mb-2">Clone Repo</button>
+                <!-- Div for the pgp key form entry -->
+                <div class="form-row align-items-center">
+                    <div class="col-auto">
+                        <label for="pgpKeyUrl" class="sr-only">PGP Key URL</label>
+                        <input type="url" class="form-control mb-2" id="pgpKeyUrl" placeholder="Enter PGP Key URL (optional)">
+                    </div>
+                </div>
             </form>
         </div>
-        <div id="repoUrlError" class="alert alert-warning" role="alert" style="display: none;">Please fill in the
-            repository URL.</div>
+        <div id="repoUrlError" class="alert alert-warning" role="alert" style="display: none;">Please fill in the repository URL.</div>
         <!-- Div for Delete All Repos Button -->
-        <div id="deleteAllRepos" class="mt-3" style="display: none;">
+        <div id="deleteAllRepos" style="display: none;">
             <button id="deleteAllButton" class="btn btn-danger">Delete All Repos</button>
         </div>
         <!-- Combined Div for Delete Button and Content Display -->
@@ -63,7 +73,7 @@
         //const directoryPath = '/foo'; // Example directory path, is dynamic now and based on user via the repo url input
         const contentDisplayId = 'contentDisplay'; // Correctly assigning the ID as a string
         const corsProxy = 'https://sandstonemountain.com'; // CORS Proxy URL
-        const armoredPublicKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
+        const  defaultArmoredPublicKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
 
 mQENBGX19UcBCACobhXY5SVtc+fM8j/XrMhEfikazwbjHcb0ErNwA1SaFhqlvntt
 6HJ5zbPu0JmtYqgI1h4gCsYPtr0ZQfcPO3xpG35WFe4DAcvqoZYUmRD/RuNabjvq
@@ -219,28 +229,41 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
             }
         }
 
+
+        // Fetch pgp key from a link in the form code, this will be used to verify the signature
+        async function fetchPgpKey(pgpKeyUrl) {
+            try {
+                const response = await fetch(pgpKeyUrl);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch PGP key');
+                }
+                return await response.text();
+            } catch (error) {
+                console.error('Error fetching PGP key:', error);
+                return null;
+            }
+        }
+
         // Updated cloneRepo function
-        async function cloneRepo(repoUrl, corsProxy, armoredPublicKey) {
+        async function cloneRepo(repoUrl, corsProxy, pgpKeyUrl, armoredPublicKey = defaultArmoredPublicKey) {
             const directoryPath = `/${repoUrl.split('/').pop().replace(/\.git$/, '')}`;
 
-            // Check if the directory already exists
             try {
                 const dirExists = await pfs.stat(directoryPath);
                 console.log(`${directoryPath} exists. Deleting old contents.`);
                 await deleteDirectoryContents(directoryPath);
                 await pfs.rmdir(directoryPath);
                 console.log("Old directory contents were overwritten.");
-                checkAndDisplayContent(); // Update the UI to reflect the deletion
+                checkAndDisplayContent();
             } catch (error) {
                 if (error.code !== 'ENOENT') {
                     console.error("Error checking directory existence:", error);
-                    return; // Stops further execution if the error is not about the non-existence of the directory
+                    return;
                 } else {
                     console.log("Directory does not exist, no need to delete.");
                 }
             }
 
-            // Proceed with cloning
             try {
                 await git.clone({
                     fs,
@@ -264,37 +287,45 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
                         return;
                     }
 
-                    const isValid = await verifySignature(data, armoredSignature, armoredPublicKey);
-                    if (isValid) {
-                        console.log('Signature is valid. Updating the UI.');
-                        const repoContainer = document.createElement('div');
-                        repoContainer.classList.add('repo-container', 'mb-3');
+                    if (pgpKeyUrl) {
+                        armoredPublicKey = await fetchPgpKey(pgpKeyUrl) || armoredPublicKey;
+                    }
 
-                        const contentDisplay = document.createElement('div');
-                        const directoryContents = await pfs.readdir(directoryPath);
-                        if (directoryContents.includes('index.html')) {
-                            contentDisplay.innerHTML = `<h3>${directoryPath.slice(1)}</h3>Signature is valid. <br> Navigate to the cloned page <a href="${directoryPath}/index.html">here</a>.<br>`;
+                    if (armoredPublicKey) {
+                        const isValid = await verifySignature(data, armoredSignature, armoredPublicKey);
+                        if (isValid) {
+                            console.log('Signature is valid. Updating the UI.');
+                            const repoContainer = document.createElement('div');
+                            repoContainer.classList.add('repo-container', 'mb-3');
+
+                            const contentDisplay = document.createElement('div');
+                            const directoryContents = await pfs.readdir(directoryPath);
+                            if (directoryContents.includes('index.html')) {
+                                contentDisplay.innerHTML = `<h3>${directoryPath.slice(1)}</h3>Signature is valid. <br> Navigate to the cloned page <a href="${directoryPath}/index.html">here</a>.<br>`;
+                            } else {
+                                contentDisplay.innerHTML = `<h3>${directoryPath.slice(1)}</h3>Signature is valid. No index.html found in the cloned repo.<br>`;
+                            }
+
+                            const deleteBtn = document.createElement('button');
+                            deleteBtn.textContent = 'Delete Repo';
+                            deleteBtn.classList.add('btn', 'btn-danger', 'mb-2');
+                            deleteBtn.addEventListener('click', async () => {
+                                await deleteRepo(directoryPath, repoContainer);
+                            });
+
+                            repoContainer.appendChild(deleteBtn);
+                            repoContainer.appendChild(contentDisplay);
+
+                            const reposContainer = document.getElementById('reposContainer');
+                            reposContainer.appendChild(repoContainer);
+                            document.getElementById('deleteAllRepos').style.display = 'block';
                         } else {
-                            contentDisplay.innerHTML = `<h3>${directoryPath.slice(1)}</h3>Signature is valid. No index.html found in the cloned repo.<br>`;
+                            await deleteDirectoryContents(directoryPath);
+                            await pfs.rmdir(directoryPath);
+                            console.log("The signature is invalid or does not match the provided public key. The repository has been removed.");
                         }
-
-                        const deleteBtn = document.createElement('button');
-                        deleteBtn.textContent = 'Delete Repo';
-                        deleteBtn.classList.add('btn', 'btn-danger', 'mb-2');
-                        deleteBtn.addEventListener('click', async () => {
-                            await deleteRepo(directoryPath, repoContainer);
-                        });
-
-                        repoContainer.appendChild(deleteBtn);
-                        repoContainer.appendChild(contentDisplay);
-
-                        const reposContainer = document.getElementById('reposContainer');
-                        reposContainer.appendChild(repoContainer);
-                        document.getElementById('deleteAllRepos').style.display = 'block'; // Show the deleteAllRepos button
                     } else {
-                        await deleteDirectoryContents(directoryPath);
-                        await pfs.rmdir(directoryPath);
-                        console.log("The signature is invalid or does not match the provided public key. The repository has been removed.");
+                        console.log("No PGP key provided. Repository will not be verified.");
                     }
                 } else {
                     await deleteDirectoryContents(directoryPath);
@@ -308,8 +339,6 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
                 console.log("Failed directory was removed.");
             }
         }
-
-
         // End of cloneRepo function
 
         // Adjusted function to return the commit object instead of stringifying it
@@ -332,7 +361,7 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
             }
         }
 
-
+        // Updated function to verify the signature of the last repo commit using OpenPGP.js
         async function verifySignature(data, armoredSignature, armoredPublicKey) {
             const publicKey = await openpgp.readKey({ armoredKey: armoredPublicKey });
             const signature = await openpgp.readSignature({ armoredSignature });
@@ -371,15 +400,14 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
             }
         }
 
-
-
         // Attach the event listener to the buttons
         document.getElementById('repoForm').addEventListener('submit', async function (event) {
             event.preventDefault();
             const repoUrl = document.getElementById('repoUrl').value;
+            const pgpKeyUrl = document.getElementById('pgpKeyUrl').value;
             if (repoUrl) {
                 document.getElementById('repoUrlError').style.display = 'none';
-                await cloneRepo(repoUrl, corsProxy, armoredPublicKey);
+                await cloneRepo(repoUrl, corsProxy, pgpKeyUrl);
             } else {
                 document.getElementById('repoUrlError').style.display = 'block';
             }
@@ -387,9 +415,8 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
 
         // Attach the event listener to the delete all repos button
         document.getElementById('deleteAllButton').addEventListener('click', async () => {
-            await deleteAllRepos(); // Call the function directly
+            await deleteAllRepos();
         });
-
 
         // Perform an initial check to set up the UI appropriately based on the current state
         checkAndDisplayContent();
