@@ -71,9 +71,8 @@
             }
         });
 
-        document.getElementById('deleteAllButton').addEventListener('click', async () => {
-            await MicroCI.deleteAllRepos();
-        });
+        document.getElementById('deleteAllButton').addEventListener('click', MicroCI.deleteAllRepos);
+
 
         MicroCI.checkAndDisplayContent(); // Initial setup function call
     </script>
