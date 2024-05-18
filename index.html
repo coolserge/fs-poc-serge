@@ -51,13 +51,15 @@
                 <div class="form-row align-items-center">
                     <div class="col-auto">
                         <label for="pgpKeyUrl" class="sr-only">PGP Key URL</label>
-                        <input type="url" class="form-control mb-2" id="pgpKeyUrl" placeholder="Enter PGP Key URL (optional)">
+                        <input type="url" class="form-control mb-2" id="pgpKeyUrl"
+                            placeholder="Enter PGP Key URL (optional)">
                     </div>
                 </div>
             </form>
         </div>
-        <!-- Div for Repository URL and PGP Key URL Error Message -->
-        <div id="repoUrlError" class="alert alert-warning" role="alert" style="display: none;">Please fill in both the repository and the PGP Key URLs</div>
+        <!-- Div for Displaying Error Messages: Empty URLs or various cloning and repo verification errors -->
+        <div id="displayError" class="alert alert-warning" role="alert" style="display: none;">Please fill in both the
+            repository and the PGP Key URLs</div>
         <!-- Div for Delete All Repos Button -->
         <div id="deleteAllRepos" style="display: none;">
             <button id="deleteAllButton" class="btn btn-danger">Delete All Repos</button>
@@ -230,6 +232,7 @@
             } catch (error) {
                 if (error.code !== 'ENOENT') {
                     console.error("Error checking directory existence:", error);
+                    displayErrorMessage(`Error checking directory existence: ${error.message}`);
                     return;
                 } else {
                     console.log("Directory does not exist, no need to delete.");
@@ -256,6 +259,7 @@
                         await deleteDirectoryContents(directoryPath);
                         await pfs.rmdir(directoryPath);
                         console.log("No signature found. Repository is unverified and has been removed.");
+                        displayErrorMessage("No signature found. Repository is unverified and has been removed.");
                         return;
                     }
 
@@ -295,23 +299,36 @@
                             await deleteDirectoryContents(directoryPath);
                             await pfs.rmdir(directoryPath);
                             console.log("The signature is invalid or does not match the provided public key. The repository has been removed.");
+                            displayErrorMessage("The signature is invalid or does not match the provided public key. The repository has been removed.");
                         }
                     } else {
-                        console.log("No PGP key provided. Repository will not be verified.");
+                        await deleteDirectoryContents(directoryPath);
+                        await pfs.rmdir(directoryPath);
+                        console.log("No valid PGP key provided. Repository was unverified and was deleted.");
+                        displayErrorMessage("No valid PGP key provided. Repository was unverified and was deleted.");
                     }
                 } else {
                     await deleteDirectoryContents(directoryPath);
                     await pfs.rmdir(directoryPath);
                     console.log("No commit object found. Repository is unverified and has been removed.");
+                    displayErrorMessage("No commit object found. Repository is unverified and has been removed.");
                 }
             } catch (error) {
                 console.error("Cloning failed:", error);
                 await deleteDirectoryContents(directoryPath);
                 await pfs.rmdir(directoryPath);
                 console.log("Failed directory was removed.");
+                displayErrorMessage(`Cloning failed: ${error.message}`);
             }
         }
         // End of cloneRepo function
+
+        // Display the cloning error message in the UI
+        function displayErrorMessage(message) {
+            const errorDiv = document.getElementById('displayError');
+            errorDiv.innerHTML = message;
+            errorDiv.style.display = 'block';
+        }
 
         // Adjusted function to return the commit object instead of stringifying it
         async function loadClonedCommitObject(directoryPath) {
@@ -378,10 +395,10 @@
             const repoUrl = document.getElementById('repoUrl').value;
             const pgpKeyUrl = document.getElementById('pgpKeyUrl').value;
             if (repoUrl && pgpKeyUrl) {
-                document.getElementById('repoUrlError').style.display = 'none';
+                document.getElementById('displayError').style.display = 'none';
                 await cloneRepo(repoUrl, corsProxy, pgpKeyUrl);
             } else {
-                document.getElementById('repoUrlError').style.display = 'block';
+                document.getElementById('displayError').style.display = 'block';
             }
         });
 
