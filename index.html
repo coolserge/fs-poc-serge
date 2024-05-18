@@ -56,7 +56,8 @@
                 </div>
             </form>
         </div>
-        <div id="repoUrlError" class="alert alert-warning" role="alert" style="display: none;">Please fill in the repository URL.</div>
+        <!-- Div for Repository URL and PGP Key URL Error Message -->
+        <div id="repoUrlError" class="alert alert-warning" role="alert" style="display: none;">Please fill in both the repository and the PGP Key URLs</div>
         <!-- Div for Delete All Repos Button -->
         <div id="deleteAllRepos" style="display: none;">
             <button id="deleteAllButton" class="btn btn-danger">Delete All Repos</button>
@@ -74,38 +75,7 @@
         const contentDisplayId = 'contentDisplay'; // Correctly assigning the ID as a string
         const corsProxy = 'https://sandstonemountain.com'; // CORS Proxy URL
         //const pgpKeyUrl = 'https://gist.githubusercontent.com/coolserge/bd305bd73260b61d06954e7c2a982655/raw/ea467d6644fd848ba355640e7714f89734db9da2/file.pgp'; // Example PGP key URL, has to come via a form input
-        // Default armored public key for signature verification
-        const  defaultArmoredPublicKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
-
-mQENBGX19UcBCACobhXY5SVtc+fM8j/XrMhEfikazwbjHcb0ErNwA1SaFhqlvntt
-6HJ5zbPu0JmtYqgI1h4gCsYPtr0ZQfcPO3xpG35WFe4DAcvqoZYUmRD/RuNabjvq
-soXt5wJoo7SUh7deXWWv1/EcKQ5YbJWkQ9+8PnuTnfty1ZNyDE/7ygxq1Eml9XhQ
-799sLks17OnFdY4ZtD1HvFrwN9Ri9K2sJG4zuEURcfG0CRnePr3hAPREgQS6y0eT
-6ioFb01SM3iJzIqhGaKPV/Q2pHI1WE+Fd4oMcKH1PpABLoIcEyDJyneAb4rcedoN
-p0pvhMesqpFX3jhczW/PXS1ZbiyiUTUPLDgvABEBAAG0MlNlcmdlIFNpbW9ub3Yg
-KE15IDIwNDggUEdQIGtleSkgPHNlcmdlZUBnbWFpbC5jb20+iQFOBBMBCgA4FiEE
-cIaaxqRAv96GV4a+J2bfNv9VIjEFAmX19UcCGwMFCwkIBwIGFQoJCAsCBBYCAwEC
-HgECF4AACgkQJ2bfNv9VIjEuVgf9EGatR5AP7ySFdPcTDDtYtg5RaDHZe3g8gRUe
-hgZ8VN74JrQbO82gPZZpvjIjXJe8aIr6QdPb5z9rQNsvhTW4TJGyxvWp475hEMQC
-Ve9s9QXj/A+iX2e4KLf+A0MANStC+QnMIV+ZqcIjB9OvmvyIfMyfha4RHtTuMKlP
-uwyXMbZdeVSExyQr4v07astdGQVuQQHKXrJG0T4x03YiNv7n9m+drepviebjZ9u7
-ZJvf0u1XfZoXj7+eX5rMfP+xq9Y42lflBc+ervgIFS0d9M7aOQrYU6LEif2eO6tt
-BMrN91PE9DdpirOrFjLy5z/U4vyaMSp0VIc/ftu79gu3q6zQ2bkBDQRl9fVHAQgA
-13T7ChjYeQVMtUfOzbgHQzPBbpdFgmy6fizKEc8lV47c+VTpuXGjdh3NCbIAyuOJ
-r0mqnWd/A6aD+CxXtlT/4RT5/MP1P8FGPQ1E1goBjjzlwl7JK2VAGJbZ2CpyysVI
-SpyjDD/D/J7hQ5Ps6kNYRIoLjFceablClmgVLKIlppx/jtZnQiGTFvFq0y2Phseq
-9FkTD4G10Cq6ps1FZz1j5uqWef3ESSaCUo2cJ5Q+q6lURf8g+StWM75XHmbjqxx8
-wL83Pn5T/IKUXOhgAs/DBADQh9lJZjLZXy+//q/+MAVws9e7O22S6H7wCN1BWa1P
-fvfwR9j3lBEDUS0wyedS7QARAQABiQE2BBgBCgAgFiEEcIaaxqRAv96GV4a+J2bf
-Nv9VIjEFAmX19UcCGwwACgkQJ2bfNv9VIjEYZwf+Jz5go04WvNjyvCb1Ni/bZ5cE
-72cPiLY+I5m60t1JhG/FBH/vgKyjYWXe1YUs9ZFI6+MeQIaIZAgU4p1E9o0iX1N2
-woTsohkGualR0c3bGb+9ve77LWC/6EbqdbMEMpoPHCSJ8W7ZCGRQ2du6G3Gt6PNu
-4yzc09JtI0Uwe7aaN4Bslx1cwoI0d2vigOMfqtL0eGIRP633uqklmcrVWKH73Ypc
-GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
-6Dd5ss1xcYlKxzd3DfSIVOvilqk3KAnZIDz7k8T7ImSaElOeDJXs36u/723qpg==
-=Q0Tf
------END PGP PUBLIC KEY BLOCK-----`;
-
+        // Default armored public key for signature verification is removed
         // Instantiate a new filesystem
         const fs = new LightningFS('testfs');
         const pfs = fs.promises; // Use promises interface for cleaner async operations
@@ -247,7 +217,7 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
         }
 
         // Updated cloneRepo function
-        async function cloneRepo(repoUrl, corsProxy, pgpKeyUrl, armoredPublicKey = defaultArmoredPublicKey) {
+        async function cloneRepo(repoUrl, corsProxy, pgpKeyUrl, armoredPublicKey) {
             const directoryPath = `/${repoUrl.split('/').pop().replace(/\.git$/, '')}`;
 
             try {
@@ -290,7 +260,7 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
                     }
 
                     if (pgpKeyUrl) {
-                        armoredPublicKey = await fetchPgpKey(pgpKeyUrl) || armoredPublicKey;
+                        armoredPublicKey = await fetchPgpKey(pgpKeyUrl); // Fetch the PGP key from the URL
                     }
 
                     if (armoredPublicKey) {
@@ -402,12 +372,12 @@ GosoXUVVq4/BAkFgKUaBGQ/Y57CHWTmEeguJrr0F5LrFM3VOs1UuCTKNtCOtDMvJ
             }
         }
 
-        // Attach the event listener to the buttons
+        // Attach the event listeners to the buttons
         document.getElementById('repoForm').addEventListener('submit', async function (event) {
             event.preventDefault();
             const repoUrl = document.getElementById('repoUrl').value;
             const pgpKeyUrl = document.getElementById('pgpKeyUrl').value;
-            if (repoUrl) {
+            if (repoUrl && pgpKeyUrl) {
                 document.getElementById('repoUrlError').style.display = 'none';
                 await cloneRepo(repoUrl, corsProxy, pgpKeyUrl);
             } else {
