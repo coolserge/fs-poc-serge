@@ -51,8 +51,7 @@
                 <div class="form-row align-items-center">
                     <div class="col-auto">
                         <label for="pgpKeyUrl" class="sr-only">PGP Key URL</label>
-                        <input type="url" class="form-control mb-2" id="pgpKeyUrl"
-                            placeholder="Enter PGP Key URL">
+                        <input type="url" class="form-control mb-2" id="pgpKeyUrl" placeholder="Enter PGP Key URL">
                     </div>
                 </div>
             </form>
@@ -71,10 +70,10 @@
 
         // Register the service worker
         registerServiceWorker();
-        
+
         const contentDisplayId = 'contentDisplay'; // Correctly assigning the ID as a string
         const corsProxy = 'https://sandstonemountain.com'; // CORS Proxy URL
-        
+
         // Instantiate a new filesystem
         const fs = new LightningFS('testfs');
         const pfs = fs.promises; // Use promises interface for cleaner async operations
@@ -243,74 +242,106 @@
                     dir: directoryPath,
                     corsProxy: corsProxy,
                     url: repoUrl,
-                    singleBranch: true,
-                    depth: 1
+                    singleBranch: false,
+                    depth: undefined, // Clone entire history
                 });
 
-                const commitObject = await loadClonedCommitObject(directoryPath);
-                if (commitObject) {
-                    const data = commitObject.payload;
-                    const armoredSignature = commitObject.commit.gpgsig;
-                    let armoredPublicKey = null; // Initialize the armored public key to null
+                // Fetch all branches
+                await git.fetch({
+                    fs,
+                    http: GitHttp,
+                    dir: directoryPath,
+                    corsProxy: corsProxy,
+                    url: repoUrl,
+                    singleBranch: false,
+                    tags: true,
+                });
 
-                    if (!armoredSignature) {
-                        await deleteDirectoryContents(directoryPath);
-                        await pfs.rmdir(directoryPath);
-                        console.log("No signature found. Repository is unverified and has been removed.");
-                        displayErrorMessage("No signature found. Repository is unverified and has been removed.");
-                        return;
-                    }
+                // List all branches
+                const branches = await git.listBranches({
+                    fs,
+                    dir: directoryPath,
+                    remote: 'origin'
+                });
 
-                    if (pgpKeyUrl) {
-                        armoredPublicKey = await fetchPgpKey(pgpKeyUrl); // Fetch the PGP key from the URL
-                    }
+                for (const branch of branches) {
+                    console.log(`Checking out branch: ${branch}`);
+                    await git.checkout({
+                        fs,
+                        dir: directoryPath,
+                        ref: branch,
+                    });
 
-                    if (armoredPublicKey) {
-                        const isValid = await verifySignature(data, armoredSignature, armoredPublicKey);
-                        if (isValid) {
-                            console.log('Signature is valid. Updating the UI.');
-                            const repoContainer = document.createElement('div');
-                            repoContainer.classList.add('repo-container', 'mb-3');
+                    const commits = await git.log({
+                        fs,
+                        dir: directoryPath,
+                        ref: branch,
+                    });
 
-                            const contentDisplay = document.createElement('div');
-                            const directoryContents = await pfs.readdir(directoryPath);
-                            if (directoryContents.includes('index.html')) {
-                                contentDisplay.innerHTML = `<h3>${directoryPath.slice(1)}</h3>Signature is valid. <br> Navigate to the cloned page <a href="${directoryPath}/index.html">here</a>.<br>`;
+                    for (const commit of commits) {
+                        const data = commit.payload;
+                        const armoredSignature = commit.commit.gpgsig;
+                        let armoredPublicKey = null; // Initialize the armored public key to null
+
+                        if (!armoredSignature) {
+                            await deleteDirectoryContents(directoryPath);
+                            await pfs.rmdir(directoryPath);
+                            console.log(`No signature found for commit ${commit.oid} in branch ${branch}. Repository is unverified and has been removed.`);
+                            displayErrorMessage(`No signature found for commit ${commit.oid} in branch ${branch}. Repository is unverified and has been removed.`);
+                            return;
+                        }
+
+                        if (pgpKeyUrl) {
+                            armoredPublicKey = await fetchPgpKey(pgpKeyUrl); // Fetch the PGP key from the URL
+                        }
+
+                        if (armoredPublicKey) {
+                            const isValid = await verifySignature(data, armoredSignature, armoredPublicKey);
+                            if (isValid) {
+                                console.log(`Signature for commit ${commit.oid} in branch ${branch} is valid.`);
                             } else {
-                                contentDisplay.innerHTML = `<h3>${directoryPath.slice(1)}</h3>Signature is valid. No index.html found in the cloned repo.<br>`;
+                                await deleteDirectoryContents(directoryPath);
+                                await pfs.rmdir(directoryPath);
+                                console.log(`The signature for commit ${commit.oid} in branch ${branch} is invalid or does not match the provided public key. The repository has been removed.`);
+                                displayErrorMessage(`The signature for commit ${commit.oid} in branch ${branch} is invalid or does not match the provided public key. The repository has been removed.`);
+                                return;
                             }
-
-                            const deleteBtn = document.createElement('button');
-                            deleteBtn.textContent = 'Delete Repo';
-                            deleteBtn.classList.add('btn', 'btn-danger', 'mb-2');
-                            deleteBtn.addEventListener('click', async () => {
-                                await deleteRepo(directoryPath, repoContainer);
-                            });
-
-                            repoContainer.appendChild(deleteBtn);
-                            repoContainer.appendChild(contentDisplay);
-
-                            const reposContainer = document.getElementById('reposContainer');
-                            reposContainer.appendChild(repoContainer);
-                            document.getElementById('deleteAllRepos').style.display = 'block';
                         } else {
                             await deleteDirectoryContents(directoryPath);
                             await pfs.rmdir(directoryPath);
-                            console.log("The signature is invalid or does not match the provided public key. The repository has been removed.");
-                            displayErrorMessage("The signature is invalid or does not match the provided public key. The repository has been removed.");
+                            console.log(`No valid PGP key provided. Repository was unverified and was deleted.`);
+                            displayErrorMessage(`No valid PGP key provided. Repository was unverified and was deleted.`);
+                            return;
                         }
-                    } else {
-                        await deleteDirectoryContents(directoryPath);
-                        await pfs.rmdir(directoryPath);
-                        console.log("No valid PGP key provided. Repository was unverified and was deleted.");
-                        displayErrorMessage("No valid PGP key provided. Repository was unverified and was deleted.");
                     }
-                } else {
-                    await deleteDirectoryContents(directoryPath);
-                    await pfs.rmdir(directoryPath);
-                    console.log("No commit object found. Repository is unverified and has been removed.");
-                    displayErrorMessage("No commit object found. Repository is unverified and has been removed.");
                 }
+
+                console.log('All commits in all branches have been verified successfully.');
+                const repoContainer = document.createElement('div');
+                repoContainer.classList.add('repo-container', 'mb-3');
+
+                const contentDisplay = document.createElement('div');
+                const directoryContents = await pfs.readdir(directoryPath);
+                if (directoryContents.includes('index.html')) {
+                    contentDisplay.innerHTML = `<h3>${directoryPath.slice(1)}</h3>All signatures are valid. <br> Navigate to the cloned page <a href="${directoryPath}/index.html">here</a>.<br>`;
+                } else {
+                    contentDisplay.innerHTML = `<h3>${directoryPath.slice(1)}</h3>All signatures are valid. No index.html found in the cloned repo.<br>`;
+                }
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Delete Repo';
+                deleteBtn.classList.add('btn', 'btn-danger', 'mb-2');
+                deleteBtn.addEventListener('click', async () => {
+                    await deleteRepo(directoryPath, repoContainer);
+                });
+
+                repoContainer.appendChild(deleteBtn);
+                repoContainer.appendChild(contentDisplay);
+
+                const reposContainer = document.getElementById('reposContainer');
+                reposContainer.appendChild(repoContainer);
+                document.getElementById('deleteAllRepos').style.display = 'block';
+
             } catch (error) {
                 console.error("Cloning failed:", error);
                 await deleteDirectoryContents(directoryPath);
@@ -329,22 +360,22 @@
         }
 
         // Adjusted function to return the commit object instead of stringifying it
-        async function loadClonedCommitObject(directoryPath) {
+        async function loadClonedCommitObject(directoryPath, branchName) {
             try {
                 const commits = await git.log({
                     fs,
-                    dir: directoryPath, // Use directoryPath instead of a hardcoded value
-                    depth: 1,
+                    dir: directoryPath,
+                    ref: branchName,
                 });
                 if (commits.length > 0) {
-                    return commits[0]; // Return the commit object directly
+                    return commits; // Return the commit objects directly
                 } else {
                     console.log('No commits found.');
-                    return null;
+                    return [];
                 }
             } catch (error) {
                 console.error('Error loading commit object:', error);
-                return null;
+                return [];
             }
         }
 
