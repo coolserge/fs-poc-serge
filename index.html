@@ -126,6 +126,9 @@
                             branchSelect.classList.add('form-control', 'mb-2');
                             repoContainer.appendChild(branchSelect);
 
+                            // Get the current branch
+                            const currentBranch = await git.currentBranch({ fs, dir: directoryPath, fullname: false });
+
                             let branches = await git.listBranches({
                                 fs,
                                 dir: directoryPath,
@@ -137,6 +140,9 @@
                                 const branchOption = document.createElement('option');
                                 branchOption.value = branch;
                                 branchOption.textContent = branch;
+                                if (branch === currentBranch) {
+                                    branchOption.selected = true;
+                                }
                                 branchSelect.appendChild(branchOption);
                             }
 
@@ -158,7 +164,11 @@
                                 }
                             });
 
+                            // Get the current commit
+                            const currentCommit = await git.resolveRef({ fs, dir: directoryPath, ref: 'HEAD' });
                             await updateCommitDropdown(directoryPath, branchSelect.value, commitSelect);
+                            commitSelect.value = currentCommit;
+
                             reposContainer.appendChild(repoContainer);
                         }
                     }
@@ -172,8 +182,6 @@
                 console.log('Error reading directories:', err);
             }
         }
-
-
 
         //Delete all repos function
         async function deleteAllRepos() {
