@@ -122,6 +122,43 @@
                             }
                             repoContainer.appendChild(contentDisplay);
 
+                            const branchSelect = document.createElement('select');
+                            branchSelect.classList.add('form-control', 'mb-2');
+                            repoContainer.appendChild(branchSelect);
+
+                            let branches = await git.listBranches({
+                                fs,
+                                dir: directoryPath,
+                                remote: 'origin'
+                            });
+                            branches = branches.filter(branch => branch !== 'HEAD');
+
+                            for (const branch of branches) {
+                                const branchOption = document.createElement('option');
+                                branchOption.value = branch;
+                                branchOption.textContent = branch;
+                                branchSelect.appendChild(branchOption);
+                            }
+
+                            const commitSelect = document.createElement('select');
+                            commitSelect.classList.add('form-control', 'mb-2');
+                            repoContainer.appendChild(commitSelect);
+
+                            branchSelect.addEventListener('change', async (event) => {
+                                await updateCommitDropdown(directoryPath, branchSelect.value, commitSelect);
+                            });
+
+                            commitSelect.addEventListener('change', async (event) => {
+                                await checkoutCommit(directoryPath, branchSelect.value, commitSelect.value);
+                                const dirEntries = await pfs.readdir(directoryPath);
+                                if (dirEntries.includes('index.html')) {
+                                    contentDisplay.innerHTML = `<h3>${dir}</h3>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
+                                } else {
+                                    contentDisplay.innerHTML = `<h3>${dir}</h3>No index.html found in this directory.<br>`;
+                                }
+                            });
+
+                            await updateCommitDropdown(directoryPath, branchSelect.value, commitSelect);
                             reposContainer.appendChild(repoContainer);
                         }
                     }
@@ -135,6 +172,8 @@
                 console.log('Error reading directories:', err);
             }
         }
+
+
 
         //Delete all repos function
         async function deleteAllRepos() {
@@ -257,12 +296,13 @@
                     tags: true,
                 });
 
-                // List all branches
-                const branches = await git.listBranches({
+                // List all branches and filter out HEAD
+                let branches = await git.listBranches({
                     fs,
                     dir: directoryPath,
                     remote: 'origin'
                 });
+                branches = branches.filter(branch => branch !== 'HEAD');
 
                 for (const branch of branches) {
                     console.log(`Checking out branch: ${branch}`);
@@ -338,6 +378,36 @@
                 repoContainer.appendChild(deleteBtn);
                 repoContainer.appendChild(contentDisplay);
 
+                const branchSelect = document.createElement('select');
+                branchSelect.classList.add('form-control', 'mb-2');
+                repoContainer.appendChild(branchSelect);
+
+                for (const branch of branches) {
+                    const branchOption = document.createElement('option');
+                    branchOption.value = branch;
+                    branchOption.textContent = branch;
+                    branchSelect.appendChild(branchOption);
+                }
+
+                const commitSelect = document.createElement('select');
+                commitSelect.classList.add('form-control', 'mb-2');
+                repoContainer.appendChild(commitSelect);
+
+                branchSelect.addEventListener('change', async (event) => {
+                    await updateCommitDropdown(directoryPath, branchSelect.value, commitSelect);
+                });
+
+                commitSelect.addEventListener('change', async (event) => {
+                    await checkoutCommit(directoryPath, branchSelect.value, commitSelect.value);
+                    const dirEntries = await pfs.readdir(directoryPath);
+                    if (dirEntries.includes('index.html')) {
+                        contentDisplay.innerHTML = `<h3>${directoryPath.slice(1)}</h3>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
+                    } else {
+                        contentDisplay.innerHTML = `<h3>${directoryPath.slice(1)}</h3>No index.html found in this directory.<br>`;
+                    }
+                });
+
+                await updateCommitDropdown(directoryPath, branchSelect.value, commitSelect);
                 const reposContainer = document.getElementById('reposContainer');
                 reposContainer.appendChild(repoContainer);
                 document.getElementById('deleteAllRepos').style.display = 'block';
@@ -350,6 +420,7 @@
                 displayErrorMessage(`Cloning failed for the following reasons: ${error.message}`);
             }
         }
+
         // End of cloneRepo function
 
         // Display the cloning error message in the UI
@@ -417,6 +488,55 @@
                 console.error('Error listing directory contents:', err);
             }
         }
+
+        // Function to update commit dropdown
+        async function updateCommitDropdown(directoryPath, branch, commitSelect) {
+            try {
+                console.log(`Updating commit dropdown for branch: ${branch}`);
+                const commits = await git.log({
+                    fs,
+                    dir: directoryPath,
+                    ref: branch,
+                });
+
+                commitSelect.innerHTML = ''; // Clear existing options
+
+                if (commits.length === 0) {
+                    console.log(`No commits found for branch: ${branch}`);
+                } else {
+                    console.log(`Found ${commits.length} commits for branch: ${branch}`);
+                }
+
+                for (const commit of commits) {
+                    console.log(`Adding commit: ${commit.oid}, message: ${commit.commit.message}`);
+                    const commitOption = document.createElement('option');
+                    commitOption.value = commit.oid;
+                    commitOption.textContent = commit.commit.message ? commit.commit.message : commit.oid;
+                    commitSelect.appendChild(commitOption);
+                }
+            } catch (error) {
+                console.error('Error updating commit dropdown:', error);
+            }
+        }
+
+
+        // Function to checkout a specific commit
+        async function checkoutCommit(directoryPath, branch, commit) {
+            try {
+                console.log(`Checking out commit: ${commit} in branch: ${branch}`);
+                await git.checkout({
+                    fs,
+                    dir: directoryPath,
+                    ref: commit,
+                    force: true,
+                });
+                console.log(`Checked out commit ${commit} in branch ${branch}`);
+            } catch (error) {
+                console.error(`Error checking out commit ${commit} in branch ${branch}:`, error);
+            }
+        }
+
+
 
         // Attach the event listeners to the buttons
         document.getElementById('repoForm').addEventListener('submit', async function (event) {
