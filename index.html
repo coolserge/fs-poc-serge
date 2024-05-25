@@ -36,7 +36,7 @@
         </div>
         <!-- Bootstrap styled buttons -->
         <!-- Div for Repository URL Input, Optional pgp key and Clone Repo Button -->
-        <div id="cloneControlPanel" style="display: none;">
+        <div id="cloneControlPanel">
             <form id="repoForm" class="mb-3">
                 <div class="form-row align-items-center">
                     <div class="col-auto">
@@ -88,98 +88,42 @@
                 });
                 const dirStats = await Promise.all(dirStatPromises);
                 const directories = dirStats.filter(({ isDirectory }) => isDirectory).map(({ entry }) => entry);
-                console.log(directories);
 
-                const reposContainer = document.getElementById('reposContainer');
-                reposContainer.innerHTML = ''; // Clear existing content
+                const repos = [];
+                for (const dir of directories) {
+                    const directoryPath = `/${dir}`;
+                    const dirEntries = await pfs.readdir(directoryPath);
 
-                const cloneControlPanel = document.getElementById('cloneControlPanel');
-                cloneControlPanel.style.display = 'block'; // Always show the cloneControlPanel
+                    console.log(`Contents of ${directoryPath}:`, dirEntries); // Log the directory contents
 
-                if (directories.length > 0) {
-                    for (const dir of directories) {
-                        let directoryPath = `/${dir}`;
-                        const dirEntries = await pfs.readdir(directoryPath);
+                    if (dirEntries.length > 0) {
+                        const currentBranch = await git.currentBranch({ fs, dir: directoryPath, fullname: false });
 
-                        if (dirEntries.length > 0) {
-                            const repoContainer = document.createElement('div');
-                            repoContainer.classList.add('repo-container', 'mb-3');
-                            reposContainer.appendChild(repoContainer);
+                        let branches = await git.listBranches({
+                            fs,
+                            dir: directoryPath,
+                            remote: 'origin'
+                        });
+                        branches = branches.filter(branch => branch !== 'HEAD');
 
-                            const deleteBtn = document.createElement('button');
-                            deleteBtn.textContent = 'Delete Repo';
-                            deleteBtn.classList.add('btn', 'btn-danger', 'mb-2');
-                            deleteBtn.addEventListener('click', async () => {
-                                await deleteRepo(directoryPath, repoContainer);
-                            });
-                            repoContainer.appendChild(deleteBtn);
-
-                            const contentDisplay = document.createElement('div');
-                            if (dirEntries.includes('index.html')) {
-                                contentDisplay.innerHTML = `<h3>${dir}</h3>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
-                            } else {
-                                contentDisplay.innerHTML = `<h3>${dir}</h3>No index.html found in this directory.<br>`;
-                            }
-                            repoContainer.appendChild(contentDisplay);
-
-                            const branchSelect = document.createElement('select');
-                            branchSelect.classList.add('form-control', 'mb-2');
-                            repoContainer.appendChild(branchSelect);
-
-                            // Get the current branch
-                            const currentBranch = await git.currentBranch({ fs, dir: directoryPath, fullname: false });
-
-                            let branches = await git.listBranches({
-                                fs,
-                                dir: directoryPath,
-                                remote: 'origin'
-                            });
-                            branches = branches.filter(branch => branch !== 'HEAD');
-
-                            for (const branch of branches) {
-                                const branchOption = document.createElement('option');
-                                branchOption.value = branch;
-                                branchOption.textContent = branch;
-                                if (branch === currentBranch) {
-                                    branchOption.selected = true;
-                                }
-                                branchSelect.appendChild(branchOption);
-                            }
-
-                            const commitSelect = document.createElement('select');
-                            commitSelect.classList.add('form-control', 'mb-2');
-                            repoContainer.appendChild(commitSelect);
-
-                            branchSelect.addEventListener('change', async (event) => {
-                                await updateCommitDropdown(directoryPath, branchSelect.value, commitSelect);
-                            });
-
-                            commitSelect.addEventListener('change', async (event) => {
-                                await checkoutCommit(directoryPath, branchSelect.value, commitSelect.value);
-                                const dirEntries = await pfs.readdir(directoryPath);
-                                if (dirEntries.includes('index.html')) {
-                                    contentDisplay.innerHTML = `<h3>${dir}</h3>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
-                                } else {
-                                    contentDisplay.innerHTML = `<h3>${dir}</h3>No index.html found in this directory.<br>`;
-                                }
-                            });
-
-                            // Get the current commit
-                            const currentCommit = await git.resolveRef({ fs, dir: directoryPath, ref: 'HEAD' });
-                            await updateCommitDropdown(directoryPath, branchSelect.value, commitSelect);
-                            commitSelect.value = currentCommit;
-
-                            reposContainer.appendChild(repoContainer);
-                        }
+                        const currentCommit = await git.resolveRef({ fs, dir: directoryPath, ref: 'HEAD' });
+                        const hasIndexHtml = dirEntries.includes('index.html');
+                        repos.push({
+                            directoryPath,
+                            repoName: dir,
+                            dirEntries,
+                            currentBranch,
+                            branches,
+                            currentCommit,
+                            hasIndexHtml,
+                        });
                     }
-                    document.getElementById('deleteAllRepos').style.display = 'block'; // Show the deleteAllRepos button
-                } else { // Hide the deleteAllRepos button if there are no directories
-                    document.getElementById('deleteAllRepos').style.display = 'none';
                 }
-                // Call the function to list all directory contents
-                listAllDirectoryContents();
+                return repos;
+
             } catch (err) {
                 console.log('Error reading directories:', err);
+                return [];
             }
         }
 
@@ -263,7 +207,8 @@
 
         // Updated cloneRepo function
         async function cloneRepo(repoUrl, corsProxy, pgpKeyUrl) {
-            const directoryPath = `/${repoUrl.split('/').pop().replace(/\.git$/, '')}`;
+            const repoName = repoUrl.split('/').pop().replace(/\.git$/, '');
+            const directoryPath = `/${repoName}`;
 
             try {
                 const dirExists = await pfs.stat(directoryPath);
@@ -275,8 +220,7 @@
             } catch (error) {
                 if (error.code !== 'ENOENT') {
                     console.error("Error checking directory existence:", error);
-                    displayErrorMessage(`Error checking directory existence: ${error.message}`);
-                    return;
+                    return { success: false, message: `Error checking directory existence: ${error.message}` };
                 } else {
                     console.log("Directory does not exist, no need to delete.");
                 }
@@ -312,6 +256,8 @@
                 });
                 branches = branches.filter(branch => branch !== 'HEAD');
 
+                let lastCommit = null;
+
                 for (const branch of branches) {
                     console.log(`Checking out branch: ${branch}`);
                     await git.checkout({
@@ -326,6 +272,10 @@
                         ref: branch,
                     });
 
+                    if (!lastCommit && commits.length > 0) {
+                        lastCommit = commits[0].oid; // Get the last commit (most recent)
+                    }
+
                     for (const commit of commits) {
                         const data = commit.payload;
                         const armoredSignature = commit.commit.gpgsig;
@@ -335,8 +285,7 @@
                             await deleteDirectoryContents(directoryPath);
                             await pfs.rmdir(directoryPath);
                             console.log(`No signature found for commit ${commit.oid} in branch ${branch}. Repository is unverified and has been removed.`);
-                            displayErrorMessage(`No signature found for commit ${commit.oid} in branch ${branch}. Repository is unverified and has been removed.`);
-                            return;
+                            return { success: false, message: `No signature found for commit ${commit.oid} in branch ${branch}. Repository is unverified and has been removed.` };
                         }
 
                         if (pgpKeyUrl) {
@@ -351,83 +300,49 @@
                                 await deleteDirectoryContents(directoryPath);
                                 await pfs.rmdir(directoryPath);
                                 console.log(`The signature for commit ${commit.oid} in branch ${branch} is invalid or does not match the provided public key. The repository has been removed.`);
-                                displayErrorMessage(`The signature for commit ${commit.oid} in branch ${branch} is invalid or does not match the provided public key. The repository has been removed.`);
-                                return;
+                                return { success: false, message: `The signature for commit ${commit.oid} in branch ${branch} is invalid or does not match the provided public key. The repository has been removed.` };
                             }
                         } else {
                             await deleteDirectoryContents(directoryPath);
                             await pfs.rmdir(directoryPath);
                             console.log(`No valid PGP key provided. Repository was unverified and was deleted.`);
-                            displayErrorMessage(`No valid PGP key provided. Repository was unverified and was deleted.`);
-                            return;
+                            return { success: false, message: `No valid PGP key provided. Repository was unverified and was deleted.` };
                         }
                     }
                 }
 
+                if (lastCommit) {
+                    // Checkout the last commit by default
+                    await git.checkout({
+                        fs,
+                        dir: directoryPath,
+                        ref: lastCommit,
+                        force: true,
+                    });
+                    console.log(`Checked out the last commit: ${lastCommit}`);
+                }
+
                 console.log('All commits in all branches have been verified successfully.');
-                const repoContainer = document.createElement('div');
-                repoContainer.classList.add('repo-container', 'mb-3');
-
-                const contentDisplay = document.createElement('div');
                 const directoryContents = await pfs.readdir(directoryPath);
-                if (directoryContents.includes('index.html')) {
-                    contentDisplay.innerHTML = `<h3>${directoryPath.slice(1)}</h3>All signatures are valid. <br> Navigate to the cloned page <a href="${directoryPath}/index.html">here</a>.<br>`;
-                } else {
-                    contentDisplay.innerHTML = `<h3>${directoryPath.slice(1)}</h3>All signatures are valid. No index.html found in the cloned repo.<br>`;
-                }
-
-                const deleteBtn = document.createElement('button');
-                deleteBtn.textContent = 'Delete Repo';
-                deleteBtn.classList.add('btn', 'btn-danger', 'mb-2');
-                deleteBtn.addEventListener('click', async () => {
-                    await deleteRepo(directoryPath, repoContainer);
-                });
-
-                repoContainer.appendChild(deleteBtn);
-                repoContainer.appendChild(contentDisplay);
-
-                const branchSelect = document.createElement('select');
-                branchSelect.classList.add('form-control', 'mb-2');
-                repoContainer.appendChild(branchSelect);
-
-                for (const branch of branches) {
-                    const branchOption = document.createElement('option');
-                    branchOption.value = branch;
-                    branchOption.textContent = branch;
-                    branchSelect.appendChild(branchOption);
-                }
-
-                const commitSelect = document.createElement('select');
-                commitSelect.classList.add('form-control', 'mb-2');
-                repoContainer.appendChild(commitSelect);
-
-                branchSelect.addEventListener('change', async (event) => {
-                    await updateCommitDropdown(directoryPath, branchSelect.value, commitSelect);
-                });
-
-                commitSelect.addEventListener('change', async (event) => {
-                    await checkoutCommit(directoryPath, branchSelect.value, commitSelect.value);
-                    const dirEntries = await pfs.readdir(directoryPath);
-                    if (dirEntries.includes('index.html')) {
-                        contentDisplay.innerHTML = `<h3>${directoryPath.slice(1)}</h3>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
-                    } else {
-                        contentDisplay.innerHTML = `<h3>${directoryPath.slice(1)}</h3>No index.html found in this directory.<br>`;
-                    }
-                });
-
-                await updateCommitDropdown(directoryPath, branchSelect.value, commitSelect);
-                const reposContainer = document.getElementById('reposContainer');
-                reposContainer.appendChild(repoContainer);
-                document.getElementById('deleteAllRepos').style.display = 'block';
+                const hasIndexHtml = directoryContents.includes('index.html');
+                return {
+                    success: true,
+                    directoryPath,
+                    repoName,
+                    hasIndexHtml,
+                    branches,
+                    currentCommit: lastCommit,
+                };
 
             } catch (error) {
                 console.error("Cloning failed:", error);
                 await deleteDirectoryContents(directoryPath);
                 await pfs.rmdir(directoryPath);
                 console.log("Failed directory was removed.");
-                displayErrorMessage(`Cloning failed for the following reasons: ${error.message}`);
+                return { success: false, message: `Cloning failed for the following reasons: ${error.message}` };
             }
         }
+
 
         // End of cloneRepo function
 
@@ -527,7 +442,6 @@
             }
         }
 
-
         // Function to checkout a specific commit
         async function checkoutCommit(directoryPath, branch, commit) {
             try {
@@ -544,28 +458,107 @@
             }
         }
 
-
-
-        // Attach the event listeners to the buttons
+        // Attach the event listeners to the buttons and display the cloned repositories (this will be the html content)
         document.getElementById('repoForm').addEventListener('submit', async function (event) {
             event.preventDefault();
             const repoUrl = document.getElementById('repoUrl').value;
             const pgpKeyUrl = document.getElementById('pgpKeyUrl').value;
             if (repoUrl && pgpKeyUrl) {
                 document.getElementById('displayError').style.display = 'none';
-                await cloneRepo(repoUrl, corsProxy, pgpKeyUrl);
+                const result = await cloneRepo(repoUrl, corsProxy, pgpKeyUrl);
+                if (result.success) {
+                    renderRepo(result);
+                } else {
+                    displayErrorMessage(result.message);
+                }
             } else {
                 document.getElementById('displayError').style.display = 'block';
             }
         });
 
-        // Attach the event listener to the delete all repos button
         document.getElementById('deleteAllButton').addEventListener('click', async () => {
             await deleteAllRepos();
+            const repos = await checkAndDisplayContent();
+            renderRepos(repos);
         });
 
-        // Perform an initial check to set up the UI appropriately based on the current state
-        checkAndDisplayContent();
+        async function renderRepos(repos) {
+            const reposContainer = document.getElementById('reposContainer');
+            reposContainer.innerHTML = ''; // Clear existing content
+            for (const repo of repos) {
+                await renderRepo(repo);
+            }
+        }
+
+        async function renderRepo(repo) {
+            const { directoryPath, repoName, dirEntries, currentBranch, branches, currentCommit, hasIndexHtml } = repo;
+            const repoContainer = document.createElement('div');
+            repoContainer.classList.add('repo-container', 'mb-3');
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = 'Delete Repo';
+            deleteBtn.classList.add('btn', 'btn-danger', 'mb-2');
+            deleteBtn.addEventListener('click', async () => {
+                await deleteRepo(directoryPath, repoContainer);
+            });
+
+            const contentDisplay = document.createElement('div');
+            if (hasIndexHtml) {
+                contentDisplay.innerHTML = `<h3>${repoName}</h3>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
+            } else {
+                contentDisplay.innerHTML = `<h3>${repoName}</h3>No index.html found in this directory.<br>`;
+            }
+
+            const branchSelect = document.createElement('select');
+            branchSelect.classList.add('form-control', 'mb-2');
+            repoContainer.appendChild(branchSelect);
+
+            branches.forEach(branch => {
+                const branchOption = document.createElement('option');
+                branchOption.value = branch;
+                branchOption.textContent = branch;
+                if (branch === currentBranch) {
+                    branchOption.selected = true;
+                }
+                branchSelect.appendChild(branchOption);
+            });
+
+            const commitSelect = document.createElement('select');
+            commitSelect.classList.add('form-control', 'mb-2');
+            repoContainer.appendChild(commitSelect);
+
+            branchSelect.addEventListener('change', async (event) => {
+                await updateCommitDropdown(directoryPath, branchSelect.value, commitSelect);
+            });
+
+            commitSelect.addEventListener('change', async (event) => {
+                await checkoutCommit(directoryPath, branchSelect.value, commitSelect.value);
+                const dirEntries = await pfs.readdir(directoryPath);
+                if (dirEntries.includes('index.html')) {
+                    contentDisplay.innerHTML = `<h3>${repoName}</h3>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
+                } else {
+                    contentDisplay.innerHTML = `<h3>${repoName}</h3>No index.html found in this directory.<br>`;
+                }
+            });
+
+            await updateCommitDropdown(directoryPath, branchSelect.value, commitSelect);
+            commitSelect.value = currentCommit;
+
+            repoContainer.appendChild(deleteBtn);
+            repoContainer.appendChild(contentDisplay);
+            repoContainer.appendChild(branchSelect);
+            repoContainer.appendChild(commitSelect);
+
+            const reposContainer = document.getElementById('reposContainer');
+            reposContainer.appendChild(repoContainer);
+            document.getElementById('deleteAllRepos').style.display = 'block';
+        }
+
+        // Initial load
+        (async () => {
+            const repos = await checkAndDisplayContent();
+            renderRepos(repos);
+        })();
 
     </script>
 </body>
