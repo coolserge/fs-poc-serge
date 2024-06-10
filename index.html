@@ -35,23 +35,22 @@
             <p>Navigate to the static page <a href="admin/index.html">here</a></p>
         </div>
         <!-- Bootstrap styled buttons -->
-        <!-- Div for Repository URL Input, Optional pgp key and Clone Repo Button -->
+        <!-- Div for Repository URL Input, pgp key and Clone Repo Button -->
         <div id="cloneControlPanel" style="display: none;">
             <form id="repoForm" class="mb-3">
                 <div class="form-row align-items-center">
-                    <div class="col-auto">
+                    <div class="col-12 col-md-8 mb-2">
                         <label for="repoUrl" class="sr-only">Repository URL</label>
-                        <input type="url" class="form-control mb-2" id="repoUrl" placeholder="Enter repository URL">
-                    </div>
-                    <div class="col-auto">
-                        <button type="submit" class="btn btn-primary mb-2">Clone Repo</button>
+                        <input type="url" class="form-control" id="repoUrl" placeholder="Enter repository URL">
                     </div>
                 </div>
-                <!-- Div for the pgp key form entry -->
                 <div class="form-row align-items-center">
-                    <div class="col-auto">
+                    <div class="col-12 col-md-8 mb-2">
                         <label for="pgpKeyUrl" class="sr-only">PGP Key URL</label>
-                        <input type="url" class="form-control mb-2" id="pgpKeyUrl" placeholder="Enter PGP Key URL">
+                        <input type="url" class="form-control" id="pgpKeyUrl" placeholder="Enter PGP Key URL">
+                    </div>
+                    <div class="col-12 col-md-4 mb-2">
+                        <button type="submit" class="btn btn-primary w-100">Clone Repo</button>
                     </div>
                 </div>
             </form>
