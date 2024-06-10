@@ -64,10 +64,9 @@
             <button id="deleteAllButton" class="btn btn-danger">Delete All Repos</button>
         </div>
         <!-- Combined Div for Delete Button and Content Display -->
-        <div id="reposContainer" class="mt-3"></div>
+        <div id="reposContainer" class="row mt-3"></div>
     </div>
     <script>
-
         // Register the service worker
         registerServiceWorker();
 
@@ -102,29 +101,29 @@
                         const dirEntries = await pfs.readdir(directoryPath);
 
                         if (dirEntries.length > 0) {
-                            const repoContainer = document.createElement('div');
-                            repoContainer.classList.add('repo-container', 'mb-3');
-                            reposContainer.appendChild(repoContainer);
+                            const repoContainerCol = document.createElement('div');
+                            repoContainerCol.classList.add('col-12', 'col-md-6', 'mb-3');
+                            reposContainer.appendChild(repoContainerCol);
 
-                            const deleteBtn = document.createElement('button');
-                            deleteBtn.textContent = 'Delete Repo';
-                            deleteBtn.classList.add('btn', 'btn-danger', 'mb-2');
-                            deleteBtn.addEventListener('click', async () => {
-                                await deleteRepo(directoryPath, repoContainer);
-                            });
-                            repoContainer.appendChild(deleteBtn);
+                            const repoContainer = document.createElement('div');
+                            repoContainer.classList.add('card');
+                            repoContainerCol.appendChild(repoContainer);
+
+                            const cardBody = document.createElement('div');
+                            cardBody.classList.add('card-body');
+                            repoContainer.appendChild(cardBody);
 
                             const contentDisplay = document.createElement('div');
                             if (dirEntries.includes('index.html')) {
-                                contentDisplay.innerHTML = `<h3>${dir}</h3>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
+                                contentDisplay.innerHTML = `<h5 class="card-title">${dir}</h5>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
                             } else {
-                                contentDisplay.innerHTML = `<h3>${dir}</h3>No index.html found in this directory.<br>`;
+                                contentDisplay.innerHTML = `<h5 class="card-title">${dir}</h5>No index.html found in this directory.<br>`;
                             }
-                            repoContainer.appendChild(contentDisplay);
+                            cardBody.appendChild(contentDisplay);
 
                             const branchSelect = document.createElement('select');
                             branchSelect.classList.add('form-control', 'mb-2');
-                            repoContainer.appendChild(branchSelect);
+                            cardBody.appendChild(branchSelect);
 
                             // Get the current branch
                             const currentBranch = await git.currentBranch({ fs, dir: directoryPath, fullname: false });
@@ -148,7 +147,7 @@
 
                             const commitSelect = document.createElement('select');
                             commitSelect.classList.add('form-control', 'mb-2');
-                            repoContainer.appendChild(commitSelect);
+                            cardBody.appendChild(commitSelect);
 
                             branchSelect.addEventListener('change', async (event) => {
                                 await updateCommitDropdown(directoryPath, branchSelect.value, commitSelect);
@@ -158,9 +157,9 @@
                                 await checkoutCommit(directoryPath, branchSelect.value, commitSelect.value);
                                 const dirEntries = await pfs.readdir(directoryPath);
                                 if (dirEntries.includes('index.html')) {
-                                    contentDisplay.innerHTML = `<h3>${dir}</h3>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
+                                    contentDisplay.innerHTML = `<h5 class="card-title">${dir}</h5>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
                                 } else {
-                                    contentDisplay.innerHTML = `<h3>${dir}</h3>No index.html found in this directory.<br>`;
+                                    contentDisplay.innerHTML = `<h5 class="card-title">${dir}</h5>No index.html found in this directory.<br>`;
                                 }
                             });
 
@@ -169,7 +168,15 @@
                             await updateCommitDropdown(directoryPath, branchSelect.value, commitSelect);
                             commitSelect.value = currentCommit;
 
-                            reposContainer.appendChild(repoContainer);
+                            const deleteBtn = document.createElement('button');
+                            deleteBtn.textContent = 'Delete Repo';
+                            deleteBtn.classList.add('btn', 'btn-danger', 'mt-3');
+                            deleteBtn.addEventListener('click', async () => {
+                                await deleteRepo(directoryPath, repoContainerCol);
+                            });
+                            cardBody.appendChild(deleteBtn);
+
+                            reposContainer.appendChild(repoContainerCol);
                         }
                     }
                     document.getElementById('deleteAllRepos').style.display = 'block'; // Show the deleteAllRepos button
@@ -212,13 +219,13 @@
         }
 
         // Updated function to delete cloned directory and clear the content display
-        async function deleteRepo(directoryPath, repoContainer) {
+        async function deleteRepo(directoryPath, repoContainerCol) {
             try {
                 if (directoryPath !== '/') {
                     await deleteDirectoryContents(directoryPath);
                     await pfs.rmdir(directoryPath);
                     console.log(`${directoryPath} directory deleted successfully.`);
-                    repoContainer.remove(); // Remove the repository container
+                    repoContainerCol.remove(); // Remove the repository container
                 } else {
                     console.log('Cannot delete the root directory.');
                 }
@@ -245,7 +252,6 @@
                 console.log('Service workers are not supported in this browser.');
             }
         }
-
 
         // Fetch pgp key from a link in the form code, this will be used to verify the signature
         async function fetchPgpKey(pgpKeyUrl) {
@@ -365,30 +371,29 @@
                 }
 
                 console.log('All commits in all branches have been verified successfully.');
+                const repoContainerCol = document.createElement('div');
+                repoContainerCol.classList.add('col-12', 'col-md-6', 'mb-3');
+
                 const repoContainer = document.createElement('div');
-                repoContainer.classList.add('repo-container', 'mb-3');
+                repoContainer.classList.add('card');
+                repoContainerCol.appendChild(repoContainer);
+
+                const cardBody = document.createElement('div');
+                cardBody.classList.add('card-body');
+                repoContainer.appendChild(cardBody);
 
                 const contentDisplay = document.createElement('div');
                 const directoryContents = await pfs.readdir(directoryPath);
                 if (directoryContents.includes('index.html')) {
-                    contentDisplay.innerHTML = `<h3>${directoryPath.slice(1)}</h3>All signatures are valid. <br> Navigate to the cloned page <a href="${directoryPath}/index.html">here</a>.<br>`;
+                    contentDisplay.innerHTML = `<h5 class="card-title">${directoryPath.slice(1)}</h5>All signatures are valid. Navigate to the cloned page <a href="${directoryPath}/index.html">here</a>.<br>`;
                 } else {
-                    contentDisplay.innerHTML = `<h3>${directoryPath.slice(1)}</h3>All signatures are valid. No index.html found in the cloned repo.<br>`;
+                    contentDisplay.innerHTML = `<h5 class="card-title">${directoryPath.slice(1)}</h5>All signatures are valid. No index.html found in the cloned repo.<br>`;
                 }
-
-                const deleteBtn = document.createElement('button');
-                deleteBtn.textContent = 'Delete Repo';
-                deleteBtn.classList.add('btn', 'btn-danger', 'mb-2');
-                deleteBtn.addEventListener('click', async () => {
-                    await deleteRepo(directoryPath, repoContainer);
-                });
-
-                repoContainer.appendChild(deleteBtn);
-                repoContainer.appendChild(contentDisplay);
+                cardBody.appendChild(contentDisplay);
 
                 const branchSelect = document.createElement('select');
                 branchSelect.classList.add('form-control', 'mb-2');
-                repoContainer.appendChild(branchSelect);
+                cardBody.appendChild(branchSelect);
 
                 for (const branch of branches) {
                     const branchOption = document.createElement('option');
@@ -399,7 +404,7 @@
 
                 const commitSelect = document.createElement('select');
                 commitSelect.classList.add('form-control', 'mb-2');
-                repoContainer.appendChild(commitSelect);
+                cardBody.appendChild(commitSelect);
 
                 branchSelect.addEventListener('change', async (event) => {
                     await updateCommitDropdown(directoryPath, branchSelect.value, commitSelect);
@@ -409,15 +414,24 @@
                     await checkoutCommit(directoryPath, branchSelect.value, commitSelect.value);
                     const dirEntries = await pfs.readdir(directoryPath);
                     if (dirEntries.includes('index.html')) {
-                        contentDisplay.innerHTML = `<h3>${directoryPath.slice(1)}</h3>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
+                        contentDisplay.innerHTML = `<h5 class="card-title">${directoryPath.slice(1)}</h5>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
                     } else {
-                        contentDisplay.innerHTML = `<h3>${directoryPath.slice(1)}</h3>No index.html found in this directory.<br>`;
+                        contentDisplay.innerHTML = `<h5 class="card-title">${directoryPath.slice(1)}</h5>No index.html found in this directory.<br>`;
                     }
                 });
 
                 await updateCommitDropdown(directoryPath, branchSelect.value, commitSelect);
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Delete Repo';
+                deleteBtn.classList.add('btn', 'btn-danger', 'mt-3');
+                deleteBtn.addEventListener('click', async () => {
+                    await deleteRepo(directoryPath, repoContainerCol);
+                });
+                cardBody.appendChild(deleteBtn);
+
                 const reposContainer = document.getElementById('reposContainer');
-                reposContainer.appendChild(repoContainer);
+                reposContainer.appendChild(repoContainerCol);
                 document.getElementById('deleteAllRepos').style.display = 'block';
 
             } catch (error) {
@@ -527,7 +541,6 @@
             }
         }
 
-
         // Function to checkout a specific commit
         async function checkoutCommit(directoryPath, branch, commit) {
             try {
@@ -543,8 +556,6 @@
                 console.error(`Error checking out commit ${commit} in branch ${branch}:`, error);
             }
         }
-
-
 
         // Attach the event listeners to the buttons
         document.getElementById('repoForm').addEventListener('submit', async function (event) {
