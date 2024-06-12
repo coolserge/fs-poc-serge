@@ -4,15 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <!-- Bootstrap CSS CDN -->
+    <!-- Bootstrap CSS CDN for responsive design and styling -->
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
         integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
-    <!-- LightningFS and Isomorphic-git scripts-->
-    <script src="https://cdn.jsdelivr.net/npm/@isomorphic-git/lightning-fs/dist/lightning-fs.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/isomorphic-git@1.25.3/index.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/isomorphic-git@1.25.3/http/web/index.umd.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/idb-keyval/dist/umd.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/openpgp@5.11.1/dist/openpgp.min.js"></script>
     <title>LightningFS and Isomorphic-git POC</title>
     <style>
         .repo-container {
@@ -34,87 +28,78 @@
         <div id="staticDisplay" class="mt-3">
             <p>Navigate to the static page <a href="admin/index.html">here</a></p>
         </div>
-        <!-- Bootstrap styled buttons -->
-        <!-- Div for Repository URL Input, Optional pgp key and Clone Repo Button -->
-        <div id="cloneControlPanel" style="display: none;">
-            <form id="repoForm" class="mb-3">
+        <!-- Clone control panel for inputting repo URL and PGP key URL -->
+        <div id="cloneControlPanel" class="mb-3" style="display: none;">
+            <form id="repoForm">
                 <div class="form-row align-items-center">
                     <div class="col-auto">
                         <label for="repoUrl" class="sr-only">Repository URL</label>
-                        <input type="url" class="form-control mb-2" id="repoUrl" placeholder="Enter repository URL">
+                        <input type="url" class="form-control mb-2" id="repoUrl" placeholder="Enter repository URL"
+                            required>
                     </div>
                     <div class="col-auto">
                         <button type="submit" class="btn btn-primary mb-2">Clone Repo</button>
                     </div>
                 </div>
-                <!-- Div for the pgp key form entry -->
                 <div class="form-row align-items-center">
                     <div class="col-auto">
                         <label for="pgpKeyUrl" class="sr-only">PGP Key URL</label>
-                        <input type="url" class="form-control mb-2" id="pgpKeyUrl" placeholder="Enter PGP Key URL">
+                        <input type="url" class="form-control mb-2" id="pgpKeyUrl" placeholder="Enter PGP Key URL"
+                            required>
                     </div>
                 </div>
             </form>
         </div>
-        <!-- Div for Displaying Error Messages: Empty URLs or various cloning and repo verification errors -->
+        <!-- Error message display area -->
         <div id="displayError" class="alert alert-warning" role="alert" style="display: none;"></div>
-        <!-- Div for Delete All Repos Button -->
+        <!-- Delete all repositories button -->
         <div id="deleteAllRepos" style="display: none;">
             <button id="deleteAllButton" class="btn btn-danger">Delete All Repos</button>
         </div>
-        <!-- Combined Div for Delete Button and Content Display -->
+        <!-- Container for displaying cloned repositories -->
         <div id="reposContainer" class="mt-3"></div>
     </div>
+
+    <!-- LightningFS and Isomorphic-git scripts for file system and git operations -->
+    <script src="https://cdn.jsdelivr.net/npm/@isomorphic-git/lightning-fs/dist/lightning-fs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/isomorphic-git@1.25.3/index.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/isomorphic-git@1.25.3/http/web/index.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/idb-keyval/dist/umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/openpgp@5.11.1/dist/openpgp.min.js"></script>
+
     <script>
-        // Register the service worker
+        // Register the service worker to enable offline capabilities
         registerServiceWorker();
 
-        const contentDisplayId = 'contentDisplay'; // Correctly assigning the ID as a string
-        const corsProxy = 'https://sandstonemountain.com'; // CORS Proxy URL
-
-        // Instantiate a new filesystem
+        // Initialize a new filesystem using LightningFS
         const fs = new LightningFS('testfs');
-        const pfs = fs.promises; // Use promises interface for cleaner async operations
+        const pfs = fs.promises; // Promises interface for asynchronous operations
+        const corsProxy = 'https://sandstonemountain.com'; // CORS Proxy URL
+        const errorDiv = document.getElementById('displayError'); // Error display div
 
-        // Function to check and return content for all directories under /
+        // Function to check and return the list of directories in the root
         async function checkContent() {
             try {
-                const rootDirEntries = await pfs.readdir('/');
-                const dirStatPromises = rootDirEntries.map(async entry => {
-                    const stats = await pfs.stat(`/${entry}`);
-                    return { entry, isDirectory: stats.isDirectory() };
-                });
-                const dirStats = await Promise.all(dirStatPromises);
-                const directories = dirStats.filter(({ isDirectory }) => isDirectory).map(({ entry }) => entry);
-                console.log(directories);
-
-                return directories;
+                const rootDirEntries = await pfs.readdir('/'); // Read root directory entries
+                const dirStats = await Promise.all(rootDirEntries.map(async entry => {
+                    const stats = await pfs.stat(`/${entry}`); // Get stats for each entry
+                    return { entry, isDirectory: stats.isDirectory() }; // Return entry name and directory status
+                }));
+                return dirStats.filter(({ isDirectory }) => isDirectory).map(({ entry }) => entry); // Filter and map directory entries
             } catch (err) {
-                console.log('Error reading directories:', err);
+                console.log('Error reading directories:', err); // Log error if reading directories fails
                 return [];
             }
         }
 
-        // Function to delete all repos
-        async function deleteAllRepos() {
-            const rootDirEntries = await pfs.readdir('/');
-            for (const entry of rootDirEntries) {
-                const stats = await pfs.stat(`/${entry}`);
-                if (stats.isDirectory()) {
-                    await deleteDirectoryContents(`/${entry}`);
-                    await pfs.rmdir(`/${entry}`);
-                }
-            }
-        }
-
-        // Function to recursively delete all files and directories within a given path
+        // Function to recursively delete contents of a directory
         async function deleteDirectoryContents(path) {
-            const entries = await pfs.readdir(path);
-            await Promise.all(entries.map(async (entry) => {
-                const fullPath = `${path}/${entry}`;
-                const stats = await pfs.stat(fullPath);
+            const entries = await pfs.readdir(path); // Read directory entries
+            await Promise.all(entries.map(async entry => {
+                const fullPath = `${path}/${entry}`; // Construct full path
+                const stats = await pfs.stat(fullPath); // Get stats for each entry
                 if (stats.isDirectory()) {
-                    await deleteDirectoryContents(fullPath); // Recurse into subdirectory
+                    await deleteDirectoryContents(fullPath); // Recursively delete subdirectory contents
                     await pfs.rmdir(fullPath); // Remove the now-empty subdirectory
                 } else {
                     await pfs.unlink(fullPath); // Delete file
@@ -122,21 +107,22 @@
             }));
         }
 
-        // Function to delete cloned directory
+        // Function to delete a repository directory
         async function deleteRepo(directoryPath) {
             try {
                 if (directoryPath !== '/') {
-                    await deleteDirectoryContents(directoryPath);
-                    await pfs.rmdir(directoryPath);
+                    await deleteDirectoryContents(directoryPath); // Delete all contents within the directory
+                    await pfs.rmdir(directoryPath); // Remove the directory itself
                     console.log(`${directoryPath} directory deleted successfully.`);
                 } else {
                     console.log('Cannot delete the root directory.');
                 }
             } catch (err) {
-                console.log(`Failed to delete ${directoryPath}.`, err);
+                console.log(`Failed to delete ${directoryPath}.`, err); // Log error if deletion fails
             }
         }
 
+        // Function to register the service worker
         function registerServiceWorker() {
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('sw.js')
@@ -155,40 +141,37 @@
             }
         }
 
-        // Fetch pgp key from a link in the form code, this will be used to verify the signature
+        // Function to fetch PGP key from a URL
         async function fetchPgpKey(pgpKeyUrl) {
             try {
-                const response = await fetch(pgpKeyUrl);
+                const response = await fetch(pgpKeyUrl); // Fetch PGP key
                 if (!response.ok) {
-                    throw new Error('Failed to fetch PGP key');
+                    throw new Error('Failed to fetch PGP key'); // Throw error if response is not OK
                 }
-                return await response.text();
+                return await response.text(); // Return PGP key text
             } catch (error) {
-                console.error('Error fetching PGP key:', error);
+                console.error('Error fetching PGP key:', error); // Log error if fetching fails
                 return null;
             }
         }
 
-        // Function to clone a repo
-        async function cloneRepo(repoUrl, corsProxy, pgpKeyUrl) {
-            const directoryPath = `/${repoUrl.split('/').pop().replace(/\.git$/, '')}`;
+        // Function to clone a repository
+        async function cloneRepo(repoUrl, pgpKeyUrl) {
+            const directoryPath = `/${repoUrl.split('/').pop().replace(/\.git$/, '')}`; // Construct directory path from repo URL
 
             try {
-                const dirExists = await pfs.stat(directoryPath);
-                console.log(`${directoryPath} exists. Deleting old contents.`);
-                await deleteDirectoryContents(directoryPath);
-                await pfs.rmdir(directoryPath);
-                console.log("Old directory contents were overwritten.");
+                const dirExists = await pfs.stat(directoryPath); // Check if directory exists
+                await deleteDirectoryContents(directoryPath); // Delete existing contents if directory exists
+                await pfs.rmdir(directoryPath); // Remove the directory
             } catch (error) {
                 if (error.code !== 'ENOENT') {
-                    console.error("Error checking directory existence:", error);
+                    console.error("Error checking directory existence:", error); // Log error if not ENOENT
                     throw new Error(`Error checking directory existence: ${error.message}`);
-                } else {
-                    console.log("Directory does not exist, no need to delete.");
                 }
             }
 
             try {
+                // Clone the repository
                 await git.clone({
                     fs,
                     http: GitHttp,
@@ -196,10 +179,10 @@
                     corsProxy: corsProxy,
                     url: repoUrl,
                     singleBranch: false,
-                    depth: undefined, // Clone entire history
+                    depth: undefined,
                 });
 
-                // Fetch all branches
+                // Fetch all branches and tags
                 await git.fetch({
                     fs,
                     http: GitHttp,
@@ -211,93 +194,53 @@
                 });
 
                 // List all branches and filter out HEAD
-                let branches = await git.listBranches({
-                    fs,
-                    dir: directoryPath,
-                    remote: 'origin'
-                });
+                let branches = await git.listBranches({ fs, dir: directoryPath, remote: 'origin' });
                 branches = branches.filter(branch => branch !== 'HEAD');
 
                 for (const branch of branches) {
-                    console.log(`Checking out branch: ${branch}`);
-                    await git.checkout({
-                        fs,
-                        dir: directoryPath,
-                        ref: branch,
-                    });
-
-                    const commits = await git.log({
-                        fs,
-                        dir: directoryPath,
-                        ref: branch,
-                    });
+                    await git.checkout({ fs, dir: directoryPath, ref: branch }); // Checkout each branch
+                    const commits = await git.log({ fs, dir: directoryPath, ref: branch }); // Get commit log
 
                     for (const commit of commits) {
                         const data = commit.payload;
                         const armoredSignature = commit.commit.gpgsig;
-                        let armoredPublicKey = null; // Initialize the armored public key to null
-
                         if (!armoredSignature) {
-                            await deleteDirectoryContents(directoryPath);
+                            await deleteDirectoryContents(directoryPath); // Delete contents if no signature
                             await pfs.rmdir(directoryPath);
-                            console.log(`No signature found for commit ${commit.oid} in branch ${branch}. Repository is unverified and has been removed.`);
                             displayErrorMessage(`No signature found for commit ${commit.oid} in branch ${branch}. Repository is unverified and has been removed.`);
                             return;
                         }
 
-                        if (pgpKeyUrl) {
-                            armoredPublicKey = await fetchPgpKey(pgpKeyUrl); // Fetch the PGP key from the URL
-                        }
-
-                        if (armoredPublicKey) {
-                            const isValid = await verifySignature(data, armoredSignature, armoredPublicKey);
-                            if (isValid) {
-                                console.log(`Signature for commit ${commit.oid} in branch ${branch} is valid.`);
-                            } else {
-                                await deleteDirectoryContents(directoryPath);
-                                await pfs.rmdir(directoryPath);
-                                console.log(`The signature for commit ${commit.oid} in branch ${branch} is invalid or does not match the provided public key. The repository has been removed.`);
-                                displayErrorMessage(`The signature for commit ${commit.oid} in branch ${branch} is invalid or does not match the provided public key. The repository has been removed.`);
-                                return;
-                            }
+                        const armoredPublicKey = await fetchPgpKey(pgpKeyUrl); // Fetch PGP key
+                        if (armoredPublicKey && await verifySignature(data, armoredSignature, armoredPublicKey)) {
+                            console.log(`Signature for commit ${commit.oid} in branch ${branch} is valid.`);
                         } else {
-                            await deleteDirectoryContents(directoryPath);
+                            await deleteDirectoryContents(directoryPath); // Delete contents if signature invalid
                             await pfs.rmdir(directoryPath);
-                            console.log(`No valid PGP key provided. Repository was unverified and was deleted.`);
-                            displayErrorMessage(`No valid PGP key provided. Repository was unverified and was deleted.`);
+                            displayErrorMessage(`The signature for commit ${commit.oid} in branch ${branch} is invalid. Repository has been removed.`);
                             return;
                         }
                     }
                 }
 
-                console.log('All commits in all branches have been verified successfully.');
-
                 return { directoryPath, branches }; // Return relevant data for rendering
-
             } catch (error) {
-                console.error("Cloning failed:", error);
-                if (error.message.includes('No signature found')) {
-                    console.error(`Descriptive message: ${error.message}`);
-                }
-                if (error.message.includes('ENOENT')) {
-                    error.message = 'An error occurred while trying to delete a non-existent directory.';
-                }
-                throw new Error(`Cloning failed for the following reasons: ${error.message}`);
+                console.error("Cloning failed:", error); // Log error if cloning fails
+                displayErrorMessage(`Cloning failed for the following reasons: ${error.message}`);
             }
         }
 
         // Display the cloning error message in the UI
         function displayErrorMessage(message) {
-            const errorDiv = document.getElementById('displayError');
-            errorDiv.innerHTML = message;
-            errorDiv.style.display = 'block';
+            errorDiv.innerHTML = message; // Set the error message
+            errorDiv.style.display = 'block'; // Display the error message div
         }
 
-        // Function to verify the signature of the last repo commit using OpenPGP.js
+        // Function to verify the signature of a commit using OpenPGP.js
         async function verifySignature(data, armoredSignature, armoredPublicKey) {
-            const publicKey = await openpgp.readKey({ armoredKey: armoredPublicKey });
-            const signature = await openpgp.readSignature({ armoredSignature });
-            const message = await openpgp.createMessage({ text: data });
+            const publicKey = await openpgp.readKey({ armoredKey: armoredPublicKey }); // Read PGP public key
+            const signature = await openpgp.readSignature({ armoredSignature }); // Read PGP signature
+            const message = await openpgp.createMessage({ text: data }); // Create a message from the commit data
 
             try {
                 const verificationResult = await openpgp.verify({
@@ -306,7 +249,7 @@
                     verificationKeys: publicKey
                 });
                 const { verified, keyID } = verificationResult.signatures[0];
-                await verified; // This will reject if the signature is invalid
+                await verified; // Await the verification result
                 console.log(`Signature verified successfully with key ID ${keyID.toHex()}`);
                 return true;
             } catch (e) {
@@ -315,15 +258,11 @@
             }
         }
 
-        // Function to update commit dropdown
+        // Function to update commit dropdown with commits from a branch
         async function updateCommitDropdown(directoryPath, branch, commitSelect) {
             try {
                 console.log(`Updating commit dropdown for branch: ${branch}`);
-                const commits = await git.log({
-                    fs,
-                    dir: directoryPath,
-                    ref: branch,
-                });
+                const commits = await git.log({ fs, dir: directoryPath, ref: branch }); // Get commits for branch
 
                 commitSelect.innerHTML = ''; // Clear existing options
 
@@ -335,10 +274,10 @@
 
                 for (const commit of commits) {
                     console.log(`Adding commit: ${commit.oid}, message: ${commit.commit.message}`);
-                    const commitOption = document.createElement('option');
-                    commitOption.value = commit.oid;
-                    commitOption.textContent = commit.commit.message ? commit.commit.message : commit.oid;
-                    commitSelect.appendChild(commitOption);
+                    const commitOption = document.createElement('option'); // Create option element for each commit
+                    commitOption.value = commit.oid; // Set commit OID as value
+                    commitOption.textContent = commit.commit.message ? commit.commit.message : commit.oid; // Set commit message or OID as text
+                    commitSelect.appendChild(commitOption); // Append option to select element
                 }
             } catch (error) {
                 console.error('Error updating commit dropdown:', error);
@@ -349,89 +288,81 @@
         async function checkoutCommit(directoryPath, branch, commit) {
             try {
                 console.log(`Checking out commit: ${commit} in branch: ${branch}`);
-                await git.checkout({
-                    fs,
-                    dir: directoryPath,
-                    ref: commit,
-                    force: true,
-                });
+                await git.checkout({ fs, dir: directoryPath, ref: commit, force: true }); // Checkout the specific commit
                 console.log(`Checked out commit ${commit} in branch ${branch}`);
             } catch (error) {
                 console.error(`Error checking out commit ${commit} in branch ${branch}:`, error);
             }
         }
 
-        // Function to render the repos and related UI elements
+        // Function to render the repositories and related UI elements
         async function renderRepos() {
-            const directories = await checkContent();
-            const reposContainer = document.getElementById('reposContainer');
+            const directories = await checkContent(); // Get list of directories
+            const reposContainer = document.getElementById('reposContainer'); // Repositories container div
             reposContainer.innerHTML = ''; // Clear existing content
 
-            const cloneControlPanel = document.getElementById('cloneControlPanel');
-            cloneControlPanel.style.display = 'block'; // Always show the cloneControlPanel
+            const cloneControlPanel = document.getElementById('cloneControlPanel'); // Clone control panel div
+            cloneControlPanel.style.display = 'block'; // Show clone control panel
 
             if (directories.length > 0) {
                 for (const dir of directories) {
                     let directoryPath = `/${dir}`;
-                    const dirEntries = await pfs.readdir(directoryPath);
+                    const dirEntries = await pfs.readdir(directoryPath); // Read directory entries
 
                     if (dirEntries.length > 0) {
-                        const repoContainer = document.createElement('div');
-                        repoContainer.classList.add('repo-container', 'mb-3');
-                        reposContainer.appendChild(repoContainer);
+                        const repoContainer = document.createElement('div'); // Create container for each repository
+                        repoContainer.classList.add('repo-container', 'mb-3'); // Add Bootstrap classes
+                        reposContainer.appendChild(repoContainer); // Append repository container to main container
 
-                        const deleteBtn = document.createElement('button');
-                        deleteBtn.textContent = 'Delete Repo';
-                        deleteBtn.classList.add('btn', 'btn-danger', 'mb-2');
+                        const deleteBtn = document.createElement('button'); // Create delete button
+                        deleteBtn.textContent = 'Delete Repo'; // Set button text
+                        deleteBtn.classList.add('btn', 'btn-danger', 'mb-2'); // Add Bootstrap classes
                         deleteBtn.addEventListener('click', async () => {
-                            await deleteRepo(directoryPath);
-                            renderRepos();
+                            await deleteRepo(directoryPath); // Delete repository on button click
+                            renderRepos(); // Re-render repositories
                         });
-                        repoContainer.appendChild(deleteBtn);
+                        repoContainer.appendChild(deleteBtn); // Append delete button to repository container
 
-                        const contentDisplay = document.createElement('div');
+                        const contentDisplay = document.createElement('div'); // Create content display div
                         if (dirEntries.includes('index.html')) {
                             contentDisplay.innerHTML = `<h3>${dir}</h3>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
                         } else {
                             contentDisplay.innerHTML = `<h3>${dir}</h3>No index.html found in this directory.<br>`;
                         }
-                        repoContainer.appendChild(contentDisplay);
+                        repoContainer.appendChild(contentDisplay); // Append content display to repository container
 
-                        const branchSelect = document.createElement('select');
-                        branchSelect.classList.add('form-control', 'mb-2');
-                        repoContainer.appendChild(branchSelect);
+                        const branchSelect = document.createElement('select'); // Create branch select element
+                        branchSelect.classList.add('form-control', 'mb-2'); // Add Bootstrap classes
+                        repoContainer.appendChild(branchSelect); // Append branch select to repository container
 
-                        // Get the current branch
-                        const currentBranch = await git.currentBranch({ fs, dir: directoryPath, fullname: false });
+                        const currentBranch = await git.currentBranch({ fs, dir: directoryPath, fullname: false }); // Get current branch
 
-                        let branches = await git.listBranches({
-                            fs,
-                            dir: directoryPath,
-                            remote: 'origin'
-                        });
-                        branches = branches.filter(branch => branch !== 'HEAD');
+                        let branches = await git.listBranches({ fs, dir: directoryPath, remote: 'origin' }); // List branches
+                        branches = branches.filter(branch => branch !== 'HEAD'); // Filter out HEAD
 
                         for (const branch of branches) {
-                            const branchOption = document.createElement('option');
-                            branchOption.value = branch;
-                            branchOption.textContent = branch;
+                            const branchOption = document.createElement('option'); // Create option element for each branch
+                            branchOption.value = branch; // Set branch name as value
+                            branchOption.textContent = branch; // Set branch name as text
                             if (branch === currentBranch) {
-                                branchOption.selected = true;
+                                branchOption.selected = true; // Mark current branch as selected
                             }
-                            branchSelect.appendChild(branchOption);
+                            branchSelect.appendChild(branchOption); // Append option to select element
                         }
 
-                        const commitSelect = document.createElement('select');
-                        commitSelect.classList.add('form-control', 'mb-2');
-                        repoContainer.appendChild(commitSelect);
+                        const commitSelect = document.createElement('select'); // Create commit select element
+                        commitSelect.classList.add('form-control', 'mb-2'); // Add Bootstrap classes
+                        repoContainer.appendChild(commitSelect); // Append commit select to repository container
 
+                        // Update commit dropdown when branch is changed
                         branchSelect.addEventListener('change', async (event) => {
                             await updateCommitDropdown(directoryPath, branchSelect.value, commitSelect);
                         });
 
+                        // Checkout commit when commit is changed
                         commitSelect.addEventListener('change', async (event) => {
                             await checkoutCommit(directoryPath, branchSelect.value, commitSelect.value);
-                            const dirEntries = await pfs.readdir(directoryPath);
+                            const dirEntries = await pfs.readdir(directoryPath); // Read updated directory entries
                             if (dirEntries.includes('index.html')) {
                                 contentDisplay.innerHTML = `<h3>${dir}</h3>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
                             } else {
@@ -439,23 +370,35 @@
                             }
                         });
 
-                        // Get the current commit
-                        const currentCommit = await git.resolveRef({ fs, dir: directoryPath, ref: 'HEAD' });
-                        await updateCommitDropdown(directoryPath, branchSelect.value, commitSelect);
-                        commitSelect.value = currentCommit;
+                        const currentCommit = await git.resolveRef({ fs, dir: directoryPath, ref: 'HEAD' }); // Get current commit
+                        await updateCommitDropdown(directoryPath, branchSelect.value, commitSelect); // Update commit dropdown
+                        commitSelect.value = currentCommit; // Set current commit as selected
 
-                        reposContainer.appendChild(repoContainer);
+                        reposContainer.appendChild(repoContainer); // Append repository container to main container
                     }
                 }
-                document.getElementById('deleteAllRepos').style.display = 'block'; // Show the deleteAllRepos button
-            } else { // Hide the deleteAllRepos button if there are no directories
-                document.getElementById('deleteAllRepos').style.display = 'none';
+                document.getElementById('deleteAllRepos').style.display = 'block'; // Show delete all repos button
+            } else {
+                document.getElementById('deleteAllRepos').style.display = 'none'; // Hide delete all repos button if no directories
             }
+
             // Call the function to list all directory contents
             listAllDirectoryContents();
         }
 
-        //debug function to list all directory contents for cloned repositories
+        // Function to delete all repositories
+        async function deleteAllRepos() {
+            const rootDirEntries = await pfs.readdir('/'); // Read root directory entries
+            for (const entry of rootDirEntries) {
+                const stats = await pfs.stat(`/${entry}`); // Get stats for each entry
+                if (stats.isDirectory()) {
+                    await deleteDirectoryContents(`/${entry}`); // Recursively delete directory contents
+                    await pfs.rmdir(`/${entry}`); // Remove directory
+                }
+            }
+        }
+
+        // Debug function to list all directory contents for cloned repositories
         async function listAllDirectoryContents() {
             try {
                 const rootDirEntries = await pfs.readdir('/');
@@ -472,33 +415,32 @@
             }
         }
 
-        // Attach the event listeners to the buttons
+        // Attach event listener to repository form for cloning
         document.getElementById('repoForm').addEventListener('submit', async function (event) {
-            event.preventDefault();
-            const repoUrl = document.getElementById('repoUrl').value;
-            const pgpKeyUrl = document.getElementById('pgpKeyUrl').value;
+            event.preventDefault(); // Prevent default form submission
+            const repoUrl = document.getElementById('repoUrl').value; // Get repository URL
+            const pgpKeyUrl = document.getElementById('pgpKeyUrl').value; // Get PGP key URL
             if (repoUrl && pgpKeyUrl) {
-                document.getElementById('displayError').style.display = 'none';
+                errorDiv.style.display = 'none'; // Hide error message div
                 try {
-                    await cloneRepo(repoUrl, corsProxy, pgpKeyUrl);
-                    renderRepos();
+                    await cloneRepo(repoUrl, pgpKeyUrl); // Clone repository
+                    renderRepos(); // Re-render repositories
                 } catch (error) {
-                    displayErrorMessage(error.message);
+                    displayErrorMessage(error.message); // Display error message if cloning fails
                 }
             } else {
-                displayErrorMessage('Please fill in both the repository and the PGP Key URLs.');
+                displayErrorMessage('Please fill in both the repository and the PGP Key URLs.'); // Display error if fields are empty
             }
         });
 
-        // Attach the event listener to the delete all repos button
+        // Attach event listener to delete all repositories button
         document.getElementById('deleteAllButton').addEventListener('click', async () => {
-            await deleteAllRepos();
-            renderRepos();
+            await deleteAllRepos(); // Delete all repositories on button click
+            renderRepos(); // Re-render repositories
         });
 
-        // Perform an initial check to set up the UI appropriately based on the current state
+        // Initial render of repositories on page load
         renderRepos();
-
     </script>
 </body>
 
