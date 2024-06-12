@@ -207,8 +207,7 @@
                         if (!armoredSignature) {
                             await deleteDirectoryContents(directoryPath); // Delete contents if no signature
                             await pfs.rmdir(directoryPath);
-                            displayErrorMessage(`No signature found for commit ${commit.oid} in branch ${branch}. Repository is unverified and has been removed.`);
-                            return;
+                            throw new Error(`No signature found for commit ${commit.oid} in branch ${branch}. Repository is unverified and has been removed.`);
                         }
 
                         const armoredPublicKey = await fetchPgpKey(pgpKeyUrl); // Fetch PGP key
@@ -217,16 +216,15 @@
                         } else {
                             await deleteDirectoryContents(directoryPath); // Delete contents if signature invalid
                             await pfs.rmdir(directoryPath);
-                            displayErrorMessage(`The signature for commit ${commit.oid} in branch ${branch} is invalid. Repository has been removed.`);
-                            return;
+                            throw new Error(`The signature for commit ${commit.oid} in branch ${branch} is invalid. Repository has been removed.`);
                         }
                     }
                 }
 
-                return { directoryPath, branches }; // Return relevant data for rendering
+                return { success: true, directoryPath, branches }; // Return relevant data for rendering
             } catch (error) {
                 console.error("Cloning failed:", error); // Log error if cloning fails
-                displayErrorMessage(`Cloning failed for the following reasons: ${error.message}`);
+                return { success: false, message: error.message };
             }
         }
 
@@ -422,11 +420,11 @@
             const pgpKeyUrl = document.getElementById('pgpKeyUrl').value; // Get PGP key URL
             if (repoUrl && pgpKeyUrl) {
                 errorDiv.style.display = 'none'; // Hide error message div
-                try {
-                    await cloneRepo(repoUrl, pgpKeyUrl); // Clone repository
-                    renderRepos(); // Re-render repositories
-                } catch (error) {
-                    displayErrorMessage(error.message); // Display error message if cloning fails
+                const result = await cloneRepo(repoUrl, pgpKeyUrl); // Clone repository
+                if (result.success) {
+                    renderRepos(); // Re-render repositories on success
+                } else {
+                    displayErrorMessage(result.message); // Display error message if cloning fails
                 }
             } else {
                 displayErrorMessage('Please fill in both the repository and the PGP Key URLs.'); // Display error if fields are empty
