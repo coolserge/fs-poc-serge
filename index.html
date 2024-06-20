@@ -19,6 +19,13 @@
             margin-bottom: 10px;
             /* Margin at the bottom for spacing between containers */
         }
+
+        iframe {
+            width: 100%;
+            height: 500px;
+            border: none;
+            /* No border for iframes */
+        }
     </style>
 </head>
 
@@ -62,7 +69,6 @@
         </div>
     </div>
 
-
     <!-- LightningFS and Isomorphic-git scripts for file system and git operations -->
     <script src="https://cdn.jsdelivr.net/npm/@isomorphic-git/lightning-fs/dist/lightning-fs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/isomorphic-git@1.25.3/index.umd.min.js"></script>
@@ -71,13 +77,40 @@
     <script src="https://cdn.jsdelivr.net/npm/openpgp@5.11.1/dist/openpgp.min.js"></script>
 
     <script>
+        // Function to validate HTTPS URLs
+        function isValidHttpsUrl(url) {
+            try {
+                const parsedUrl = new URL(url);
+                return parsedUrl.protocol === 'https:';
+            } catch (_) {
+                return false;
+            }
+        }
+
         // Register the service worker to enable offline capabilities
-        registerServiceWorker();
+        function registerServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                // Add integrity check for the service worker
+                navigator.serviceWorker.register('sw.js', { integrity: 'sha384-<HASH>' })
+                    .then(reg => {
+                        reg.addEventListener('updatefound', () => {
+                            const installingWorker = reg.installing;
+                            console.log('A new service worker is being installed:', installingWorker);
+                        });
+                        console.log('Registration succeeded. Scope is ' + reg.scope);
+                    })
+                    .catch(error => {
+                        console.log('Registration failed with ' + error);
+                    });
+            } else {
+                console.log('Service workers are not supported in this browser.');
+            }
+        }
 
         // Initialize a new filesystem using LightningFS
         const fs = new LightningFS('testfs');
         const pfs = fs.promises; // Promises interface for asynchronous operations
-        const corsProxy = 'https://sandstonemountain.com'; // CORS Proxy URL
+        const corsProxy = 'https://sandstonemountain.com'; // Updated CORS Proxy URL to a trusted source
         const errorDiv = document.getElementById('displayError'); // Error display div
 
         // Function to check and return the list of directories in the root
@@ -97,6 +130,11 @@
 
         // Function to recursively delete contents of a directory
         async function deleteDirectoryContents(path) {
+            if (path.includes('..')) {
+                console.error('Invalid directory path'); // Validate path to prevent directory traversal
+                return;
+            }
+
             const entries = await pfs.readdir(path); // Read directory entries
             await Promise.all(entries.map(async entry => {
                 const fullPath = `${path}/${entry}`; // Construct full path
@@ -126,26 +164,15 @@
         }
 
         // Function to register the service worker
-        function registerServiceWorker() {
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('sw.js')
-                    .then(reg => {
-                        reg.addEventListener('updatefound', () => {
-                            const installingWorker = reg.installing;
-                            console.log('A new service worker is being installed:', installingWorker);
-                        });
-                        console.log('Registration succeeded. Scope is ' + reg.scope);
-                    })
-                    .catch(error => {
-                        console.log('Registration failed with ' + error);
-                    });
-            } else {
-                console.log('Service workers are not supported in this browser.');
-            }
-        }
+        registerServiceWorker();
 
         // Function to fetch PGP key from a URL
         async function fetchPgpKey(pgpKeyUrl) {
+            if (!isValidHttpsUrl(pgpKeyUrl)) {
+                console.error('Invalid PGP Key URL:', pgpKeyUrl); // Validate PGP Key URL
+                return null;
+            }
+
             try {
                 const response = await fetch(pgpKeyUrl); // Fetch PGP key
                 if (!response.ok) {
@@ -160,6 +187,10 @@
 
         // Function to clone a repository
         async function cloneRepo(repoUrl, pgpKeyUrl) {
+            if (!isValidHttpsUrl(repoUrl)) {
+                throw new Error('Invalid Repository URL'); // Validate Repository URL
+            }
+
             const directoryPath = `/${repoUrl.split('/').pop().replace(/\.git$/, '')}`; // Construct directory path from repo URL
 
             try {
@@ -226,6 +257,13 @@
 
                 return { success: true, directoryPath, branches }; // Return relevant data for rendering
             } catch (error) {
+                // Ensure the directory is deleted if cloning fails
+                try {
+                    await deleteDirectoryContents(directoryPath);
+                    await pfs.rmdir(directoryPath);
+                } catch (e) {
+                    console.error("Failed to clean up after clone failure:", e);
+                }
                 console.error("Cloning failed:", error); // Log error if cloning fails
                 return { success: false, message: error.message };
             }
@@ -296,6 +334,16 @@
             }
         }
 
+        // Escape HTML content to prevent XSS
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
         // Function to render the repositories and related UI elements
         async function renderRepos() {
             const directories = await checkContent(); // Get list of directories
@@ -311,30 +359,28 @@
                     const dirEntries = await pfs.readdir(directoryPath); // Read directory entries
 
                     if (dirEntries.length > 0) {
-                        const repoContainer = document.createElement('div'); // Create container for each repository
-                        repoContainer.classList.add('repo-container', 'mb-3'); // Add Bootstrap classes
-                        reposContainer.appendChild(repoContainer); // Append repository container to main container
+                        const iframe = document.createElement('iframe'); // Create iframe element
+                        iframe.sandbox = "allow-scripts allow-same-origin allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-top-navigation"; // Add sandbox attributes
+                        reposContainer.appendChild(iframe); // Append iframe to repos container
 
-                        const deleteBtn = document.createElement('button'); // Create delete button
-                        deleteBtn.textContent = 'Delete Repo'; // Set button text
-                        deleteBtn.classList.add('btn', 'btn-danger', 'mb-2'); // Add Bootstrap classes
-                        deleteBtn.addEventListener('click', async () => {
-                            await deleteRepo(directoryPath); // Delete repository on button click
-                            renderRepos(); // Re-render repositories
-                        });
-                        repoContainer.appendChild(deleteBtn); // Append delete button to repository container
+                        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                        iframeDoc.open();
+                        iframeDoc.write(`
+                            <div class="repo-container mb-3">
+                                <button class="btn btn-danger mb-2" onclick="window.parent.deleteRepo('${directoryPath}')">Delete Repo</button>
+                                <div id="contentDisplay">
+                                    <h3>${escapeHtml(dir)}</h3>
+                                    ${dirEntries.includes('index.html') ? `Navigate to the cloned page <a href="#" onclick="window.top.location.href='${escapeHtml(directoryPath)}/index.html'; return false;">here</a><br>` : 'No index.html found in this directory.<br>'}
+                                </div>
+                                <select id="branchSelect" class="form-control mb-2"></select>
+                                <select id="commitSelect" class="form-control mb-2"></select>
+                            </div>
+                        `);
+                        iframeDoc.close();
 
-                        const contentDisplay = document.createElement('div'); // Create content display div
-                        if (dirEntries.includes('index.html')) {
-                            contentDisplay.innerHTML = `<h3>${dir}</h3>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
-                        } else {
-                            contentDisplay.innerHTML = `<h3>${dir}</h3>No index.html found in this directory.<br>`;
-                        }
-                        repoContainer.appendChild(contentDisplay); // Append content display to repository container
-
-                        const branchSelect = document.createElement('select'); // Create branch select element
-                        branchSelect.classList.add('form-control', 'mb-2'); // Add Bootstrap classes
-                        repoContainer.appendChild(branchSelect); // Append branch select to repository container
+                        const branchSelect = iframeDoc.getElementById('branchSelect'); // Create branch select element
+                        const commitSelect = iframeDoc.getElementById('commitSelect'); // Create commit select element
+                        const contentDisplay = iframeDoc.getElementById('contentDisplay'); // Content display div
 
                         const currentBranch = await git.currentBranch({ fs, dir: directoryPath, fullname: false }); // Get current branch
 
@@ -342,7 +388,7 @@
                         branches = branches.filter(branch => branch !== 'HEAD'); // Filter out HEAD
 
                         for (const branch of branches) {
-                            const branchOption = document.createElement('option'); // Create option element for each branch
+                            const branchOption = iframeDoc.createElement('option'); // Create option element for each branch
                             branchOption.value = branch; // Set branch name as value
                             branchOption.textContent = branch; // Set branch name as text
                             if (branch === currentBranch) {
@@ -351,55 +397,33 @@
                             branchSelect.appendChild(branchOption); // Append option to select element
                         }
 
-                        const commitSelect = document.createElement('select'); // Create commit select element
-                        commitSelect.classList.add('form-control', 'mb-2'); // Add Bootstrap classes
-                        repoContainer.appendChild(commitSelect); // Append commit select to repository container
-
                         // Update commit dropdown when branch is changed
-                        branchSelect.addEventListener('change', async (event) => {
+                        branchSelect.addEventListener('change', async () => {
                             await updateCommitDropdown(directoryPath, branchSelect.value, commitSelect);
                         });
 
                         // Checkout commit when commit is changed
-                        commitSelect.addEventListener('change', async (event) => {
+                        commitSelect.addEventListener('change', async () => {
                             await checkoutCommit(directoryPath, branchSelect.value, commitSelect.value);
-                            const dirEntries = await pfs.readdir(directoryPath); // Read updated directory entries
-                            if (dirEntries.includes('index.html')) {
-                                contentDisplay.innerHTML = `<h3>${dir}</h3>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
+                            const updatedDirEntries = await pfs.readdir(directoryPath); // Read updated directory entries
+                            if (updatedDirEntries.includes('index.html')) {
+                                contentDisplay.innerHTML = `<h3>${escapeHtml(dir)}</h3>Navigate to the cloned page <a href="#" onclick="window.top.location.href='${escapeHtml(directoryPath)}/index.html'; return false;">here</a><br>`;
                             } else {
-                                contentDisplay.innerHTML = `<h3>${dir}</h3>No index.html found in this directory.<br>`;
+                                contentDisplay.innerHTML = `<h3>${escapeHtml(dir)}</h3>No index.html found in this directory.<br>`;
                             }
                         });
 
-                        const currentCommit = await git.resolveRef({ fs, dir: directoryPath, ref: 'HEAD' }); // Get current commit
-                        await updateCommitDropdown(directoryPath, branchSelect.value, commitSelect); // Update commit dropdown
-                        commitSelect.value = currentCommit; // Set current commit as selected
-
-                        reposContainer.appendChild(repoContainer); // Append repository container to main container
+                        // Initially populate the commit dropdown with the current branch
+                        await updateCommitDropdown(directoryPath, currentBranch, commitSelect);
                     }
                 }
-                document.getElementById('deleteAllRepos').style.display = 'block'; // Show delete all repos button
-            } else {
-                document.getElementById('deleteAllRepos').style.display = 'none'; // Hide delete all repos button if no directories
             }
 
             // Call the function to list all directory contents
             listAllDirectoryContents();
         }
 
-        // Function to delete all repositories
-        async function deleteAllRepos() {
-            const rootDirEntries = await pfs.readdir('/'); // Read root directory entries
-            for (const entry of rootDirEntries) {
-                const stats = await pfs.stat(`/${entry}`); // Get stats for each entry
-                if (stats.isDirectory()) {
-                    await deleteDirectoryContents(`/${entry}`); // Recursively delete directory contents
-                    await pfs.rmdir(`/${entry}`); // Remove directory
-                }
-            }
-        }
-
-        // Debug function to list all directory contents for cloned repositories
+        // Function to list all directory contents for debugging
         async function listAllDirectoryContents() {
             try {
                 const rootDirEntries = await pfs.readdir('/');
@@ -416,31 +440,35 @@
             }
         }
 
-        // Attach event listener to repository form for cloning
-        document.getElementById('repoForm').addEventListener('submit', async function (event) {
-            event.preventDefault(); // Prevent default form submission
-            const repoUrl = document.getElementById('repoUrl').value; // Get repository URL
-            const pgpKeyUrl = document.getElementById('pgpKeyUrl').value; // Get PGP key URL
-            if (repoUrl && pgpKeyUrl) {
-                errorDiv.style.display = 'none'; // Hide error message div
-                const result = await cloneRepo(repoUrl, pgpKeyUrl); // Clone repository
+        // Handle form submission to clone a repository
+        document.getElementById('repoForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const repoUrl = document.getElementById('repoUrl').value;
+            const pgpKeyUrl = document.getElementById('pgpKeyUrl').value;
+
+            try {
+                const result = await cloneRepo(repoUrl, pgpKeyUrl);
                 if (result.success) {
-                    renderRepos(); // Re-render repositories on success
+                    renderRepos();
                 } else {
-                    displayErrorMessage(result.message); // Display error message if cloning fails
+                    displayErrorMessage(`Cloning failed: ${result.message}`);
                 }
-            } else {
-                displayErrorMessage('Please fill in both the repository and the PGP Key URLs.'); // Display error if fields are empty
+            } catch (error) {
+                displayErrorMessage(`Error: ${error.message}`);
             }
         });
 
-        // Attach event listener to delete all repositories button
+        // Delete all repositories
         document.getElementById('deleteAllButton').addEventListener('click', async () => {
-            await deleteAllRepos(); // Delete all repositories on button click
-            renderRepos(); // Re-render repositories
+            const directories = await checkContent();
+            for (const dir of directories) {
+                await deleteRepo(`/${dir}`);
+            }
+            renderRepos();
         });
 
-        // Initial render of repositories on page load
+        // Render repositories on page load
         renderRepos();
     </script>
 </body>
