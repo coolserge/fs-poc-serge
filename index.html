@@ -263,9 +263,11 @@
         async function updateCommitDropdown(directoryPath, branch, commitSelect) {
             try {
                 console.log(`Updating commit dropdown for branch: ${branch}`);
-                const commits = await git.log({ fs, dir: directoryPath, ref: branch }); // Get commits for branch
+                // Get commits for the selected branch
+                const commits = await git.log({ fs, dir: directoryPath, ref: branch });
 
-                commitSelect.innerHTML = ''; // Clear existing options
+                // Clear existing options
+                commitSelect.innerHTML = '';
 
                 if (commits.length === 0) {
                     console.log(`No commits found for branch: ${branch}`);
@@ -273,12 +275,24 @@
                     console.log(`Found ${commits.length} commits for branch: ${branch}`);
                 }
 
+                // Add commit options to dropdown
                 for (const commit of commits) {
                     console.log(`Adding commit: ${commit.oid}, message: ${commit.commit.message}`);
-                    const commitOption = document.createElement('option'); // Create option element for each commit
-                    commitOption.value = commit.oid; // Set commit OID as value
-                    commitOption.textContent = commit.commit.message ? commit.commit.message : commit.oid; // Set commit message or OID as text
-                    commitSelect.appendChild(commitOption); // Append option to select element
+                    const commitOption = document.createElement('option');
+                    commitOption.value = commit.oid;
+                    commitOption.textContent = `${commit.oid.slice(0, 7)} - ${commit.commit.message.split('\n')[0]}`;
+                    commitSelect.appendChild(commitOption);
+                }
+
+                // Get the current commit
+                const currentCommit = await git.resolveRef({ fs, dir: directoryPath, ref: 'HEAD' });
+
+                // Set the current commit as selected
+                if (currentCommit) {
+                    const currentCommitOption = Array.from(commitSelect.options).find(option => option.value === currentCommit);
+                    if (currentCommitOption) {
+                        currentCommitOption.selected = true;
+                    }
                 }
             } catch (error) {
                 console.error('Error updating commit dropdown:', error);
@@ -289,8 +303,19 @@
         async function checkoutCommit(directoryPath, branch, commit) {
             try {
                 console.log(`Checking out commit: ${commit} in branch: ${branch}`);
-                await git.checkout({ fs, dir: directoryPath, ref: commit, force: true }); // Checkout the specific commit
+
+                // First, checkout the branch
+                await git.checkout({ fs, dir: directoryPath, ref: branch });
+
+                // Then, if a specific commit is provided, checkout that commit
+                if (commit) {
+                    await git.checkout({ fs, dir: directoryPath, ref: commit });
+                }
+
                 console.log(`Checked out commit ${commit} in branch ${branch}`);
+
+                // Update the content display after checkout
+                await updateContentDisplay(directoryPath);
             } catch (error) {
                 console.error(`Error checking out commit ${commit} in branch ${branch}:`, error);
             }
@@ -298,93 +323,153 @@
 
         // Function to render the repositories and related UI elements
         async function renderRepos() {
-            const directories = await checkContent(); // Get list of directories
-            const reposContainer = document.getElementById('reposContainer'); // Repositories container div
+            // Get list of directories (repositories)
+            const directories = await checkContent();
+            const reposContainer = document.getElementById('reposContainer');
             reposContainer.innerHTML = ''; // Clear existing content
 
-            const cloneControlPanel = document.getElementById('cloneControlPanel'); // Clone control panel div
-            cloneControlPanel.style.display = 'block'; // Show clone control panel
+            // Show clone control panel
+            const cloneControlPanel = document.getElementById('cloneControlPanel');
+            cloneControlPanel.style.display = 'block';
 
             if (directories.length > 0) {
                 for (const dir of directories) {
                     let directoryPath = `/${dir}`;
-                    const dirEntries = await pfs.readdir(directoryPath); // Read directory entries
+                    const dirEntries = await pfs.readdir(directoryPath);
 
                     if (dirEntries.length > 0) {
-                        const repoContainer = document.createElement('div'); // Create container for each repository
-                        repoContainer.classList.add('repo-container', 'mb-3'); // Add Bootstrap classes
-                        reposContainer.appendChild(repoContainer); // Append repository container to main container
+                        // Create container for each repository
+                        const repoContainer = document.createElement('div');
+                        repoContainer.classList.add('repo-container', 'mb-3');
+                        reposContainer.appendChild(repoContainer);
 
-                        const deleteBtn = document.createElement('button'); // Create delete button
-                        deleteBtn.textContent = 'Delete Repo'; // Set button text
-                        deleteBtn.classList.add('btn', 'btn-danger', 'mb-2'); // Add Bootstrap classes
+                        // Create delete button for the repository
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.textContent = 'Delete Repo';
+                        deleteBtn.classList.add('btn', 'btn-danger', 'mb-2');
                         deleteBtn.addEventListener('click', async () => {
-                            await deleteRepo(directoryPath); // Delete repository on button click
-                            renderRepos(); // Re-render repositories
+                            await deleteRepo(directoryPath);
+                            renderRepos();
                         });
-                        repoContainer.appendChild(deleteBtn); // Append delete button to repository container
+                        repoContainer.appendChild(deleteBtn);
 
-                        const contentDisplay = document.createElement('div'); // Create content display div
+                        // Create content display area
+                        const contentDisplay = document.createElement('div');
+                        contentDisplay.dataset.directory = directoryPath;
                         if (dirEntries.includes('index.html')) {
                             contentDisplay.innerHTML = `<h3>${dir}</h3>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
                         } else {
                             contentDisplay.innerHTML = `<h3>${dir}</h3>No index.html found in this directory.<br>`;
                         }
-                        repoContainer.appendChild(contentDisplay); // Append content display to repository container
+                        repoContainer.appendChild(contentDisplay);
 
-                        const branchSelect = document.createElement('select'); // Create branch select element
-                        branchSelect.classList.add('form-control', 'mb-2'); // Add Bootstrap classes
-                        repoContainer.appendChild(branchSelect); // Append branch select to repository container
+                        // Create branch select dropdown
+                        const branchSelect = document.createElement('select');
+                        branchSelect.classList.add('form-control', 'mb-2');
+                        repoContainer.appendChild(branchSelect);
 
-                        const currentBranch = await git.currentBranch({ fs, dir: directoryPath, fullname: false }); // Get current branch
+                        // Create commit select dropdown
+                        const commitSelect = document.createElement('select');
+                        commitSelect.classList.add('form-control', 'mb-2');
+                        repoContainer.appendChild(commitSelect);
 
-                        let branches = await git.listBranches({ fs, dir: directoryPath, remote: 'origin' }); // List branches
-                        branches = branches.filter(branch => branch !== 'HEAD'); // Filter out HEAD
+                        // Get current branch and commit
+                        const { branch: currentBranch, commit: currentCommit } = await getCurrentBranchAndCommit(directoryPath);
+
+                        // Populate branch select dropdown
+                        let branches = await git.listBranches({ fs, dir: directoryPath, remote: 'origin' });
+                        branches = branches.filter(branch => branch !== 'HEAD');
 
                         for (const branch of branches) {
-                            const branchOption = document.createElement('option'); // Create option element for each branch
-                            branchOption.value = branch; // Set branch name as value
-                            branchOption.textContent = branch; // Set branch name as text
+                            const branchOption = document.createElement('option');
+                            branchOption.value = branch;
+                            branchOption.textContent = branch;
                             if (branch === currentBranch) {
-                                branchOption.selected = true; // Mark current branch as selected
+                                branchOption.selected = true;
                             }
-                            branchSelect.appendChild(branchOption); // Append option to select element
+                            branchSelect.appendChild(branchOption);
                         }
 
-                        const commitSelect = document.createElement('select'); // Create commit select element
-                        commitSelect.classList.add('form-control', 'mb-2'); // Add Bootstrap classes
-                        repoContainer.appendChild(commitSelect); // Append commit select to repository container
-
-                        // Update commit dropdown when branch is changed
+                        // Add event listener for branch change
                         branchSelect.addEventListener('change', async (event) => {
                             await updateCommitDropdown(directoryPath, branchSelect.value, commitSelect);
                         });
 
-                        // Checkout commit when commit is changed
+                        // Add event listener for commit change
                         commitSelect.addEventListener('change', async (event) => {
                             await checkoutCommit(directoryPath, branchSelect.value, commitSelect.value);
-                            const dirEntries = await pfs.readdir(directoryPath); // Read updated directory entries
-                            if (dirEntries.includes('index.html')) {
-                                contentDisplay.innerHTML = `<h3>${dir}</h3>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
-                            } else {
-                                contentDisplay.innerHTML = `<h3>${dir}</h3>No index.html found in this directory.<br>`;
-                            }
                         });
 
-                        const currentCommit = await git.resolveRef({ fs, dir: directoryPath, ref: 'HEAD' }); // Get current commit
-                        await updateCommitDropdown(directoryPath, branchSelect.value, commitSelect); // Update commit dropdown
-                        commitSelect.value = currentCommit; // Set current commit as selected
+                        // Update commit dropdown for current branch
+                        await updateCommitDropdown(directoryPath, currentBranch || branches[0], commitSelect);
 
-                        reposContainer.appendChild(repoContainer); // Append repository container to main container
+                        // Set current commit as selected
+                        if (currentCommit) {
+                            commitSelect.value = currentCommit;
+                        }
+
+                        // Handle detached HEAD state
+                        if (!currentBranch && currentCommit) {
+                            const commitOption = Array.from(commitSelect.options).find(option => option.value === currentCommit);
+                            if (commitOption) {
+                                commitOption.selected = true;
+                            }
+                        }
+
+                        reposContainer.appendChild(repoContainer);
                     }
                 }
-                document.getElementById('deleteAllRepos').style.display = 'block'; // Show delete all repos button
+                document.getElementById('deleteAllRepos').style.display = 'block';
             } else {
-                document.getElementById('deleteAllRepos').style.display = 'none'; // Hide delete all repos button if no directories
+                document.getElementById('deleteAllRepos').style.display = 'none';
             }
 
-            // Call the function to list all directory contents
+            // Debug: List all directory contents
             listAllDirectoryContents();
+        }
+
+        // Function to get the current branch and commit for a repository
+        async function readHEADFile(directoryPath) {
+            try {
+                // Read the contents of the HEAD file
+                const headContent = await pfs.readFile(`${directoryPath}/.git/HEAD`, { encoding: 'utf8' });
+                return headContent.trim();
+            } catch (error) {
+                console.error('Error reading HEAD file:', error);
+                return null;
+            }
+        }
+
+        // Function to get the current branch and commit for a repository
+        async function getCurrentBranchAndCommit(directoryPath) {
+            const headContent = await readHEADFile(directoryPath);
+            if (!headContent) return { branch: null, commit: null };
+
+            if (headContent.startsWith('ref: refs/heads/')) {
+                // We're on a branch
+                const branch = headContent.replace('ref: refs/heads/', '');
+                const commit = await git.resolveRef({ fs, dir: directoryPath, ref: branch });
+                return { branch, commit };
+            } else {
+                // We're in detached HEAD state
+                return { branch: null, commit: headContent };
+            }
+        }
+
+        // Function to update the content display based on the current branch and commit
+        async function updateContentDisplay(directoryPath) {
+            // Read directory contents
+            const dirEntries = await pfs.readdir(directoryPath);
+            // Find the content display element for this repository
+            const contentDisplay = document.querySelector(`[data-directory="${directoryPath}"]`);
+            if (contentDisplay) {
+                // Update the content display based on whether index.html exists
+                if (dirEntries.includes('index.html')) {
+                    contentDisplay.innerHTML = `<h3>${directoryPath.slice(1)}</h3>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
+                } else {
+                    contentDisplay.innerHTML = `<h3>${directoryPath.slice(1)}</h3>No index.html found in this directory.<br>`;
+                }
+            }
         }
 
         // Function to delete all repositories
