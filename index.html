@@ -343,15 +343,7 @@
                         repoContainer.classList.add('repo-container', 'mb-3');
                         reposContainer.appendChild(repoContainer);
 
-                        // Create delete button for the repository
-                        const deleteBtn = document.createElement('button');
-                        deleteBtn.textContent = 'Delete Repo';
-                        deleteBtn.classList.add('btn', 'btn-danger', 'mb-2');
-                        deleteBtn.addEventListener('click', async () => {
-                            await deleteRepo(directoryPath);
-                            renderRepos();
-                        });
-                        repoContainer.appendChild(deleteBtn);
+
 
                         // Create content display area
                         const contentDisplay = document.createElement('div');
@@ -415,6 +407,21 @@
                                 commitOption.selected = true;
                             }
                         }
+
+                        // Add this spacer div before the delete button
+                        const spacer = document.createElement('div');
+                        spacer.style.marginTop = '15px';  // Adjust this value to increase or decrease space
+                        repoContainer.appendChild(spacer);
+
+                        // Create delete button for the repository
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.textContent = 'Delete Repo';
+                        deleteBtn.classList.add('btn', 'btn-danger', 'mb-2');
+                        deleteBtn.addEventListener('click', async () => {
+                            await deleteRepo(directoryPath);
+                            renderRepos();
+                        });
+                        repoContainer.appendChild(deleteBtn);
 
                         reposContainer.appendChild(repoContainer);
                     }
