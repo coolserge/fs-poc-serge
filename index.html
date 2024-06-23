@@ -301,8 +301,9 @@
                 }
             },
 
-            // Add this method to the gitOps object
+            // Add this fetch method to the gitOps object
             async fetchRepo(directoryPath) {
+                let logMessage = `Fetching repo in directory: ${directoryPath}\n`;
                 try {
                     const remotes = await git.listRemotes({ fs, dir: directoryPath });
                     const originRemote = remotes.find(remote => remote.remote === 'origin');
@@ -310,8 +311,7 @@
                         throw new Error('No origin remote found');
                     }
 
-                    const beforeBranches = await git.listBranches({ fs, dir: directoryPath, remote: 'origin' });
-
+                    logMessage += 'Starting fetch operation...\n';
                     await git.fetch({
                         fs,
                         http: GitHttp,
@@ -321,26 +321,50 @@
                         singleBranch: false,
                         tags: true
                     });
+                    logMessage += 'Fetch operation completed.\n';
 
-                    const afterBranches = await git.listBranches({ fs, dir: directoryPath, remote: 'origin' });
+                    // Get all local branches
+                    const localBranches = await git.listBranches({ fs, dir: directoryPath });
+                    logMessage += `Local branches: ${localBranches.join(', ')}\n`;
 
-                    console.log('Fetch results:');
-                    for (const branch of afterBranches) {
-                        const beforeCommit = await git.resolveRef({ fs, dir: directoryPath, ref: `refs/remotes/origin/${branch}` });
-                        const afterCommit = await git.resolveRef({ fs, dir: directoryPath, ref: `refs/remotes/origin/${branch}` });
+                    // Update each local branch
+                    for (const branch of localBranches) {
+                        if (branch === 'HEAD') continue; // Skip HEAD as it's not a real branch
 
-                        if (beforeCommit !== afterCommit) {
-                            console.log(`Branch: ${branch}, New commit: ${afterCommit.slice(0, 7)}`);
+                        logMessage += `Updating branch: ${branch}\n`;
+
+                        try {
+                            // Get the latest commit of the remote branch
+                            const remoteCommit = await git.resolveRef({
+                                fs,
+                                dir: directoryPath,
+                                ref: `refs/remotes/origin/${branch}`
+                            });
+
+                            // Update the local branch to point to the same commit as the remote branch
+                            await git.writeRef({
+                                fs,
+                                dir: directoryPath,
+                                ref: `refs/heads/${branch}`,
+                                value: remoteCommit,
+                                force: true
+                            });
+
+                            logMessage += `  Updated ${branch} to ${remoteCommit}\n`;
+                        } catch (branchError) {
+                            logMessage += `  Failed to update ${branch}: ${branchError.message}\n`;
                         }
                     }
 
-                    console.log('Repository fetched successfully');
-                    return { success: true };
+                    logMessage += 'Repository fetched and local branch references updated successfully';
+                    console.log(logMessage);
+                    return { success: true, log: logMessage };
                 } catch (error) {
-                    console.error('Error fetching repository:', error);
-                    return { success: false, message: error.message };
+                    logMessage += `Error fetching repository: ${error.message}`;
+                    console.error(logMessage);
+                    return { success: false, message: error.message, log: logMessage };
                 }
-            },
+            }, // End of fetchRepo method
 
             // Delete all repositories
             async deleteAllRepos() {
@@ -473,14 +497,16 @@
                 });
 
                 fetchButton.addEventListener('click', async () => {
+                    console.log('Fetch button clicked');
                     const result = await gitOps.fetchRepo(directoryPath);
+                    console.log('Fetch result:', result);
                     if (result.success) {
-                        // Refresh the branch list
+                        // Refresh the UI
                         await this.populateBranchSelect(directoryPath, branchSelect, branchSelect.value);
-                        // Refresh the commit list for the current branch
                         await this.populateCommitSelect(directoryPath, commitSelect, branchSelect.value, commitSelect.value);
-                        // Update the content display
                         await this.updateContentDisplay(directoryPath);
+                        // Display a success message
+                        this.displayErrorMessage('Repository fetched and local branches updated successfully');
                     } else {
                         this.displayErrorMessage(`Failed to fetch repository: ${result.message}`);
                     }
