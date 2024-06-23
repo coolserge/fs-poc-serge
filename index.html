@@ -321,6 +321,7 @@
             // Add this fetch method to the gitOps object
             async fetchRepo(directoryPath) {
                 let logMessage = `Fetching repo in directory: ${directoryPath}\n`;
+                let anyBranchUpdated = false;
                 try {
                     const remotes = await git.listRemotes({ fs, dir: directoryPath });
                     const originRemote = remotes.find(remote => remote.remote === 'origin');
@@ -351,7 +352,7 @@
                     for (const branch of localBranches) {
                         if (branch === 'HEAD') continue;
 
-                        logMessage += `Updating branch: ${branch}\n`;
+                        logMessage += `Checking branch: ${branch}\n`;
 
                         try {
                             const remoteCommit = await git.resolveRef({
@@ -359,6 +360,17 @@
                                 dir: directoryPath,
                                 ref: `refs/remotes/origin/${branch}`
                             });
+
+                            const localCommit = await git.resolveRef({
+                                fs,
+                                dir: directoryPath,
+                                ref: `refs/heads/${branch}`
+                            });
+
+                            if (remoteCommit === localCommit) {
+                                logMessage += `  Branch ${branch} is up to date\n`;
+                                continue;
+                            }
 
                             // Verify the signature of the new commit
                             const { commit, payload } = await git.readCommit({
@@ -368,12 +380,14 @@
                             });
 
                             if (!commit.gpgsig) {
-                                throw new Error(`No signature found for commit ${remoteCommit} in branch ${branch}`);
+                                logMessage += `  Failed to update ${branch}: No signature found for commit ${remoteCommit}\n`;
+                                continue;
                             }
 
                             const isValid = await this.verifySignature(payload, commit.gpgsig, publicKey);
                             if (!isValid) {
-                                throw new Error(`Invalid signature for commit ${remoteCommit} in branch ${branch}`);
+                                logMessage += `  Failed to update ${branch}: Invalid signature for commit ${remoteCommit}\n`;
+                                continue;
                             }
 
                             await git.writeRef({
@@ -384,15 +398,20 @@
                                 force: true
                             });
 
+                            anyBranchUpdated = true;
                             logMessage += `  Updated ${branch} to ${remoteCommit} (signature verified)\n`;
                         } catch (branchError) {
                             logMessage += `  Failed to update ${branch}: ${branchError.message}\n`;
                         }
                     }
 
-                    logMessage += 'Repository fetched and local branch references updated successfully';
+                    if (anyBranchUpdated) {
+                        logMessage += 'Repository fetched and some local branch references updated successfully';
+                    } else {
+                        logMessage += 'Fetch completed, but no branches were updated due to missing or invalid signatures';
+                    }
                     console.log(logMessage);
-                    return { success: true, log: logMessage };
+                    return { success: anyBranchUpdated, log: logMessage };
                 } catch (error) {
                     logMessage += `Error fetching repository: ${error.message}`;
                     console.error(logMessage);
@@ -540,9 +559,9 @@
                         await this.populateCommitSelect(directoryPath, commitSelect, branchSelect.value, commitSelect.value);
                         await this.updateContentDisplay(directoryPath);
                         // Display a success message
-                        this.displayErrorMessage('Repository fetched and local branches updated successfully');
+                        this.displayErrorMessage('Repository fetched and some branches updated successfully');
                     } else {
-                        this.displayErrorMessage(`Failed to fetch repository: ${result.message}`);
+                        this.displayErrorMessage(`Fetch completed, but no branches were updated: ${result.log}`);
                     }
                 });
 
