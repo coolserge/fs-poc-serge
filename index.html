@@ -421,12 +421,14 @@
                 const fetchButton = document.createElement('button');
                 fetchButton.textContent = 'Fetch Repo';
                 fetchButton.classList.add('btn', 'btn-info', 'mr-2');
+                fetchButton.style.width = '120px'; // Set a fixed width
                 buttonContainer.appendChild(fetchButton);
 
                 // Add delete button
                 const deleteBtn = document.createElement('button');
                 deleteBtn.textContent = 'Delete Repo';
                 deleteBtn.classList.add('btn', 'btn-danger');
+                deleteBtn.style.width = '120px'; // Set the same fixed width
                 buttonContainer.appendChild(deleteBtn);
 
                 return { branchSelect, commitSelect, fetchButton, deleteBtn };
