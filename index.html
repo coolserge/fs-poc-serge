@@ -322,6 +322,7 @@
             async fetchRepo(directoryPath) {
                 let logMessage = `Fetching repo in directory: ${directoryPath}\n`;
                 let anyBranchUpdated = false;
+                let anyNewCommits = false;
                 try {
                     const remotes = await git.listRemotes({ fs, dir: directoryPath });
                     const originRemote = remotes.find(remote => remote.remote === 'origin');
@@ -372,6 +373,8 @@
                                 continue;
                             }
 
+                            anyNewCommits = true;
+
                             // Verify the signature of the new commit
                             const { commit, payload } = await git.readCommit({
                                 fs,
@@ -405,17 +408,19 @@
                         }
                     }
 
-                    if (anyBranchUpdated) {
+                    if (!anyNewCommits) {
+                        logMessage += 'Fetch completed. Repository is already up to date.';
+                    } else if (anyBranchUpdated) {
                         logMessage += 'Repository fetched and some local branch references updated successfully';
                     } else {
                         logMessage += 'Fetch completed, but no branches were updated due to missing or invalid signatures';
                     }
                     console.log(logMessage);
-                    return { success: anyBranchUpdated, log: logMessage };
+                    return { success: anyBranchUpdated, upToDate: !anyNewCommits, log: logMessage };
                 } catch (error) {
                     logMessage += `Error fetching repository: ${error.message}`;
                     console.error(logMessage);
-                    return { success: false, message: error.message, log: logMessage };
+                    return { success: false, upToDate: false, message: error.message, log: logMessage };
                 }
             }, // End of fetchRepo function
 
@@ -553,7 +558,9 @@
                     console.log('Fetch button clicked');
                     const result = await gitOps.fetchRepo(directoryPath);
                     console.log('Fetch result:', result);
-                    if (result.success) {
+                    if (result.upToDate) {
+                        this.displayErrorMessage('Repository is already up to date. No new commits to fetch.');
+                    } else if (result.success) {
                         // Refresh the UI
                         await this.populateBranchSelect(directoryPath, branchSelect, branchSelect.value);
                         await this.populateCommitSelect(directoryPath, commitSelect, branchSelect.value, commitSelect.value);
