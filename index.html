@@ -258,9 +258,10 @@
 
                     if (trimmedContent.startsWith('ref: refs/heads/')) {
                         const branch = trimmedContent.replace('ref: refs/heads/', '');
-                        const commit = await git.resolveRef({ fs, dir: directoryPath, ref: branch });
+                        const commit = await git.resolveRef({ fs, dir: directoryPath, ref: 'HEAD' });
                         return { branch, commit };
                     } else {
+                        // We're in detached HEAD state
                         return { branch: null, commit: trimmedContent };
                     }
                 } catch (error) {
@@ -461,6 +462,11 @@
                             await this.populateBranchSelect(directoryPath, branchSelect, currentBranch);
                             await this.populateCommitSelect(directoryPath, commitSelect, currentBranch || branchSelect.value, currentCommit);
 
+                            // Set the correct commit in the dropdown
+                            if (currentCommit) {
+                                commitSelect.value = currentCommit;
+                            }
+
                             this.setupEventListeners(directoryPath, branchSelect, commitSelect, fetchButton, deleteBtn);
                             reposContainer.appendChild(repoContainer);
 
@@ -546,7 +552,20 @@
 
             setupEventListeners(directoryPath, branchSelect, commitSelect, fetchButton, deleteBtn) {
                 branchSelect.addEventListener('change', async () => {
+                    const currentCommit = commitSelect.value;
                     await this.populateCommitSelect(directoryPath, commitSelect, branchSelect.value);
+
+                    // Check if the current commit exists in the new branch
+                    const commitExists = Array.from(commitSelect.options).some(option => option.value === currentCommit);
+
+                    if (commitExists) {
+                        commitSelect.value = currentCommit;
+                    } else {
+                        // If the commit doesn't exist, checkout the latest commit of the new branch
+                        await gitOps.checkoutCommit(directoryPath, branchSelect.value, commitSelect.value);
+                    }
+
+                    await this.updateContentDisplay(directoryPath);
                 });
 
                 commitSelect.addEventListener('change', async () => {
