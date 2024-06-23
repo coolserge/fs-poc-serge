@@ -161,6 +161,22 @@
                 }
             },
 
+            // Store public key in IndexedDB
+            async storePublicKey(repoUrl, publicKey) {
+                const encoder = new TextEncoder();
+                const key = await crypto.subtle.digest('SHA-256', encoder.encode(repoUrl));
+                const base64Key = btoa(String.fromCharCode.apply(null, new Uint8Array(key)));
+                await idbKeyval.set(base64Key, publicKey);  // Using idbKeyval.set
+            },
+
+            async getStoredPublicKey(repoUrl) {
+                const encoder = new TextEncoder();
+                const key = await crypto.subtle.digest('SHA-256', encoder.encode(repoUrl));
+                const base64Key = btoa(String.fromCharCode.apply(null, new Uint8Array(key)));
+                return await idbKeyval.get(base64Key);  // Using idbKeyval.get
+            },// End of getStoredPublicKey function
+
+
             // Clone repository
             async cloneRepo(repoUrl, pgpKeyUrl) {
                 const directoryPath = `/${repoUrl.split('/').pop().replace(/\.git$/, '')}`;
@@ -225,7 +241,8 @@
                             }
                         }
                     }
-
+                    const publicKey = await this.fetchPgpKey(pgpKeyUrl);
+                    await this.storePublicKey(repoUrl, publicKey);  // Use this.storePublicKey instead of storePublicKey
                     return { success: true, directoryPath, branches };
                 } catch (error) {
                     console.error("Cloning failed:", error);
@@ -311,6 +328,11 @@
                         throw new Error('No origin remote found');
                     }
 
+                    const publicKey = await this.getStoredPublicKey(originRemote.url);
+                    if (!publicKey) {
+                        throw new Error('No stored public key found for this repository');
+                    }
+
                     logMessage += 'Starting fetch operation...\n';
                     await git.fetch({
                         fs,
@@ -323,25 +345,37 @@
                     });
                     logMessage += 'Fetch operation completed.\n';
 
-                    // Get all local branches
                     const localBranches = await git.listBranches({ fs, dir: directoryPath });
                     logMessage += `Local branches: ${localBranches.join(', ')}\n`;
 
-                    // Update each local branch
                     for (const branch of localBranches) {
-                        if (branch === 'HEAD') continue; // Skip HEAD as it's not a real branch
+                        if (branch === 'HEAD') continue;
 
                         logMessage += `Updating branch: ${branch}\n`;
 
                         try {
-                            // Get the latest commit of the remote branch
                             const remoteCommit = await git.resolveRef({
                                 fs,
                                 dir: directoryPath,
                                 ref: `refs/remotes/origin/${branch}`
                             });
 
-                            // Update the local branch to point to the same commit as the remote branch
+                            // Verify the signature of the new commit
+                            const { commit, payload } = await git.readCommit({
+                                fs,
+                                dir: directoryPath,
+                                oid: remoteCommit
+                            });
+
+                            if (!commit.gpgsig) {
+                                throw new Error(`No signature found for commit ${remoteCommit} in branch ${branch}`);
+                            }
+
+                            const isValid = await this.verifySignature(payload, commit.gpgsig, publicKey);
+                            if (!isValid) {
+                                throw new Error(`Invalid signature for commit ${remoteCommit} in branch ${branch}`);
+                            }
+
                             await git.writeRef({
                                 fs,
                                 dir: directoryPath,
@@ -350,7 +384,7 @@
                                 force: true
                             });
 
-                            logMessage += `  Updated ${branch} to ${remoteCommit}\n`;
+                            logMessage += `  Updated ${branch} to ${remoteCommit} (signature verified)\n`;
                         } catch (branchError) {
                             logMessage += `  Failed to update ${branch}: ${branchError.message}\n`;
                         }
@@ -364,7 +398,7 @@
                     console.error(logMessage);
                     return { success: false, message: error.message, log: logMessage };
                 }
-            }, // End of fetchRepo method
+            }, // End of fetchRepo function
 
             // Delete all repositories
             async deleteAllRepos() {
