@@ -4,9 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <!-- Bootstrap CSS for styling -->
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
-        integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <title>LightningFS and Isomorphic-git POC</title>
     <style>
         /* Custom styling for repository containers */
@@ -15,6 +14,10 @@
             border-radius: 5px;
             padding: 10px;
             margin-bottom: 10px;
+        }
+
+        .btn-fixed-width {
+            width: 120px;
         }
     </style>
 </head>
@@ -29,23 +32,19 @@
         <!-- Clone control panel -->
         <div id="cloneControlPanel" class="mb-3" style="display: none;">
             <form id="repoForm">
-                <div class="form-row align-items-center">
+                <div class="row g-2 align-items-center mb-2">
                     <div class="col-12 col-md-6">
-                        <label for="repoUrl" class="sr-only">Repository URL</label>
-                        <input type="url" class="form-control mb-2" id="repoUrl" placeholder="Enter repository URL"
-                            required>
+                        <input type="url" class="form-control" id="repoUrl" placeholder="Enter repository URL" required>
                     </div>
                 </div>
-                <div class="form-row align-items-center">
+                <div class="row g-2 align-items-center mb-2">
                     <div class="col-12 col-md-6">
-                        <label for="pgpKeyUrl" class="sr-only">PGP Key URL</label>
-                        <input type="url" class="form-control mb-2" id="pgpKeyUrl" placeholder="Enter PGP Key URL"
-                            required>
+                        <input type="url" class="form-control" id="pgpKeyUrl" placeholder="Enter PGP Key URL" required>
                     </div>
                 </div>
-                <div class="form-row align-items-center">
+                <div class="row g-2 align-items-center">
                     <div class="col-12 col-md-6">
-                        <button type="submit" class="btn btn-primary mb-2">Clone Repo</button>
+                        <button type="submit" class="btn btn-primary">Clone Repo</button>
                     </div>
                 </div>
             </form>
@@ -508,32 +507,31 @@
                 return repoContainer;
             },
 
+            // Modify the createSelects function in renderUI to use the new classes:
             createSelects(repoContainer) {
                 const branchSelect = document.createElement('select');
-                branchSelect.classList.add('form-control', 'mb-2');
+                branchSelect.classList.add('form-select', 'mb-2');
                 repoContainer.appendChild(branchSelect);
 
                 const commitSelect = document.createElement('select');
-                commitSelect.classList.add('form-control', 'mb-2');
+                commitSelect.classList.add('form-select', 'mb-2');
                 repoContainer.appendChild(commitSelect);
 
                 // Create a container for the buttons
                 const buttonContainer = document.createElement('div');
-                buttonContainer.classList.add('btn-group', 'mb-2');
+                buttonContainer.classList.add('d-flex', 'gap-2', 'mb-2');
                 repoContainer.appendChild(buttonContainer);
 
                 // Add fetch button
                 const fetchButton = document.createElement('button');
                 fetchButton.textContent = 'Fetch Repo';
-                fetchButton.classList.add('btn', 'btn-info', 'mr-2');
-                fetchButton.style.width = '120px'; // Set a fixed width
+                fetchButton.classList.add('btn', 'btn-info', 'btn-fixed-width', 'text-white');
                 buttonContainer.appendChild(fetchButton);
 
                 // Add delete button
                 const deleteBtn = document.createElement('button');
                 deleteBtn.textContent = 'Delete Repo';
-                deleteBtn.classList.add('btn', 'btn-danger');
-                deleteBtn.style.width = '120px'; // Set the same fixed width
+                deleteBtn.classList.add('btn', 'btn-danger', 'btn-fixed-width');
                 buttonContainer.appendChild(deleteBtn);
 
                 return { branchSelect, commitSelect, fetchButton, deleteBtn };
