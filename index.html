@@ -96,7 +96,7 @@
         // Git operations module
         const gitOps = {
             // Check content of the root directory
-            async checkContent() {
+            async checkContent(pfs) {
                 try {
                     const rootDirEntries = await pfs.readdir('/');
                     const dirStats = await Promise.all(rootDirEntries.map(async entry => {
@@ -111,13 +111,13 @@
             },
 
             // Delete contents of a directory
-            async deleteDirectoryContents(path) {
+            async deleteDirectoryContents(pfs, path) {
                 const entries = await pfs.readdir(path);
                 await Promise.all(entries.map(async entry => {
                     const fullPath = `${path}/${entry}`;
                     const stats = await pfs.stat(fullPath);
                     if (stats.isDirectory()) {
-                        await this.deleteDirectoryContents(fullPath);
+                        await this.deleteDirectoryContents(pfs, fullPath);
                         await pfs.rmdir(fullPath);
                     } else {
                         await pfs.unlink(fullPath);
@@ -169,21 +169,21 @@
                 await idbKeyval.set(base64Key, publicKey);  // Using idbKeyval.set
             },
 
+            // Get stored public key from IndexedDB
             async getStoredPublicKey(repoUrl) {
                 const encoder = new TextEncoder();
                 const key = await crypto.subtle.digest('SHA-256', encoder.encode(repoUrl));
                 const base64Key = btoa(String.fromCharCode.apply(null, new Uint8Array(key)));
                 return await idbKeyval.get(base64Key);  // Using idbKeyval.get
-            },// End of getStoredPublicKey function
-
+            },
 
             // Clone repository
-            async cloneRepo(repoUrl, pgpKeyUrl) {
+            async cloneRepo(fs, pfs, corsProxy, repoUrl, pgpKeyUrl) {
                 const directoryPath = `/${repoUrl.split('/').pop().replace(/\.git$/, '')}`;
 
                 try {
                     const dirExists = await pfs.stat(directoryPath);
-                    await this.deleteDirectoryContents(directoryPath);
+                    await this.deleteDirectoryContents(pfs, directoryPath);
                     await pfs.rmdir(directoryPath);
                 } catch (error) {
                     if (error.code !== 'ENOENT') {
@@ -226,7 +226,7 @@
                             const data = commit.payload;
                             const armoredSignature = commit.commit.gpgsig;
                             if (!armoredSignature) {
-                                await this.deleteDirectoryContents(directoryPath);
+                                await this.deleteDirectoryContents(pfs, directoryPath);
                                 await pfs.rmdir(directoryPath);
                                 throw new Error(`No signature found for commit ${commit.oid} in branch ${branch}. Repository is unverified and has been removed.`);
                             }
@@ -235,14 +235,14 @@
                             if (armoredPublicKey && await this.verifySignature(data, armoredSignature, armoredPublicKey)) {
                                 console.log(`Signature for commit ${commit.oid} in branch ${branch} is valid.`);
                             } else {
-                                await this.deleteDirectoryContents(directoryPath);
+                                await this.deleteDirectoryContents(pfs, directoryPath);
                                 await pfs.rmdir(directoryPath);
                                 throw new Error(`The signature for commit ${commit.oid} in branch ${branch} is invalid. Repository has been removed.`);
                             }
                         }
                     }
                     const publicKey = await this.fetchPgpKey(pgpKeyUrl);
-                    await this.storePublicKey(repoUrl, publicKey);  // Use this.storePublicKey instead of storePublicKey
+                    await this.storePublicKey(repoUrl, publicKey);
                     return { success: true, directoryPath, branches };
                 } catch (error) {
                     console.error("Cloning failed:", error);
@@ -251,7 +251,7 @@
             },
 
             // Get current branch and commit
-            async getCurrentBranchAndCommit(directoryPath) {
+            async getCurrentBranchAndCommit(fs, pfs, directoryPath) {
                 try {
                     const headContent = await pfs.readFile(`${directoryPath}/.git/HEAD`, { encoding: 'utf8' });
                     const trimmedContent = headContent.trim();
@@ -271,7 +271,7 @@
             },
 
             // List branches
-            async listBranches(directoryPath) {
+            async listBranches(fs, directoryPath) {
                 try {
                     let branches = await git.listBranches({ fs, dir: directoryPath, remote: 'origin' });
                     return branches.filter(branch => branch !== 'HEAD');
@@ -282,7 +282,7 @@
             },
 
             // Get commits for a branch
-            async getCommitsForBranch(directoryPath, branch) {
+            async getCommitsForBranch(fs, directoryPath, branch) {
                 try {
                     return await git.log({ fs, dir: directoryPath, ref: branch });
                 } catch (error) {
@@ -292,7 +292,7 @@
             },
 
             // Checkout a commit
-            async checkoutCommit(directoryPath, branch, commit) {
+            async checkoutCommit(fs, pfs, directoryPath, branch, commit) {
                 try {
                     await git.checkout({ fs, dir: directoryPath, ref: branch });
                     if (commit) {
@@ -305,10 +305,10 @@
             },
 
             // Delete a repository
-            async deleteRepo(directoryPath) {
+            async deleteRepo(pfs, directoryPath) {
                 try {
                     if (directoryPath !== '/') {
-                        await this.deleteDirectoryContents(directoryPath);
+                        await this.deleteDirectoryContents(pfs, directoryPath);
                         await pfs.rmdir(directoryPath);
                         console.log(`${directoryPath} directory deleted successfully.`);
                     } else {
@@ -320,7 +320,7 @@
             },
 
             // List all directory contents for debugging
-            async listAllDirectoryContents() {
+            async listAllDirectoryContents(pfs) {
                 try {
                     const rootDirEntries = await pfs.readdir('/');
                     for (const entry of rootDirEntries) {
@@ -336,8 +336,8 @@
                 }
             },
 
-            // Add this fetch method to the gitOps object
-            async fetchRepo(directoryPath) {
+            // Fetch repository
+            async fetchRepo(fs, pfs, corsProxy, directoryPath) {
                 let logMessage = `Fetching repo in directory: ${directoryPath}\n`;
                 let anyBranchUpdated = false;
                 let anyNewCommits = false;
@@ -440,15 +440,15 @@
                     console.error(logMessage);
                     return { success: false, upToDate: false, message: error.message, log: logMessage };
                 }
-            }, // End of fetchRepo function
+            },
 
             // Delete all repositories
-            async deleteAllRepos() {
+            async deleteAllRepos(pfs) {
                 const rootDirEntries = await pfs.readdir('/');
                 for (const entry of rootDirEntries) {
                     const stats = await pfs.stat(`/${entry}`);
                     if (stats.isDirectory()) {
-                        await this.deleteDirectoryContents(`/${entry}`);
+                        await this.deleteDirectoryContents(pfs, `/${entry}`);
                         await pfs.rmdir(`/${entry}`);
                     }
                 }
@@ -457,8 +457,8 @@
 
         // UI rendering module
         const renderUI = {
-            async renderRepos() {
-                const directories = await gitOps.checkContent();
+            async renderRepos(fs, pfs, corsProxy, errorDiv) {
+                const directories = await gitOps.checkContent(pfs);
                 const reposContainer = document.getElementById('reposContainer');
                 reposContainer.innerHTML = '';
 
@@ -474,20 +474,20 @@
                             const repoContainer = this.createRepoContainer(dir, directoryPath);
                             const { branchSelect, commitSelect, fetchButton, deleteBtn } = this.createSelects(repoContainer);
 
-                            const { branch: currentBranch, commit: currentCommit } = await gitOps.getCurrentBranchAndCommit(directoryPath);
+                            const { branch: currentBranch, commit: currentCommit } = await gitOps.getCurrentBranchAndCommit(fs, pfs, directoryPath);
 
-                            await this.populateBranchSelect(directoryPath, branchSelect, currentBranch);
-                            await this.populateCommitSelect(directoryPath, commitSelect, currentBranch || branchSelect.value, currentCommit);
+                            await this.populateBranchSelect(fs, pfs, directoryPath, branchSelect, currentBranch);
+                            await this.populateCommitSelect(fs, pfs, directoryPath, commitSelect, currentBranch || branchSelect.value, currentCommit);
 
                             // Set the correct commit in the dropdown
                             if (currentCommit) {
                                 commitSelect.value = currentCommit;
                             }
 
-                            this.setupEventListeners(directoryPath, branchSelect, commitSelect, fetchButton, deleteBtn);
+                            this.setupEventListeners(fs, pfs, corsProxy, errorDiv, directoryPath, branchSelect, commitSelect, fetchButton, deleteBtn);
                             reposContainer.appendChild(repoContainer);
 
-                            await this.updateContentDisplay(directoryPath);
+                            await this.updateContentDisplay(pfs, directoryPath);
                         }
                     }
                     document.getElementById('deleteAllRepos').style.display = 'block';
@@ -539,8 +539,8 @@
                 return { branchSelect, commitSelect, fetchButton, deleteBtn };
             },
 
-            async populateBranchSelect(directoryPath, branchSelect, currentBranch) {
-                const branches = await gitOps.listBranches(directoryPath);
+            async populateBranchSelect(fs, pfs, directoryPath, branchSelect, currentBranch) {
+                const branches = await gitOps.listBranches(fs, directoryPath);
                 branchSelect.innerHTML = '';
                 for (const branch of branches) {
                     const branchOption = document.createElement('option');
@@ -553,8 +553,8 @@
                 }
             },
 
-            async populateCommitSelect(directoryPath, commitSelect, branch, currentCommit) {
-                const commits = await gitOps.getCommitsForBranch(directoryPath, branch);
+            async populateCommitSelect(fs, pfs, directoryPath, commitSelect, branch, currentCommit) {
+                const commits = await gitOps.getCommitsForBranch(fs, directoryPath, branch);
                 commitSelect.innerHTML = '';
                 for (const commit of commits) {
                     const commitOption = document.createElement('option');
@@ -567,10 +567,10 @@
                 }
             },
 
-            setupEventListeners(directoryPath, branchSelect, commitSelect, fetchButton, deleteBtn) {
+            setupEventListeners(fs, pfs, corsProxy, errorDiv, directoryPath, branchSelect, commitSelect, fetchButton, deleteBtn) {
                 branchSelect.addEventListener('change', async () => {
                     const currentCommit = commitSelect.value;
-                    await this.populateCommitSelect(directoryPath, commitSelect, branchSelect.value);
+                    await this.populateCommitSelect(fs, pfs, directoryPath, commitSelect, branchSelect.value);
 
                     // Check if the current commit exists in the new branch
                     const commitExists = Array.from(commitSelect.options).some(option => option.value === currentCommit);
@@ -579,42 +579,42 @@
                         commitSelect.value = currentCommit;
                     } else {
                         // If the commit doesn't exist, checkout the latest commit of the new branch
-                        await gitOps.checkoutCommit(directoryPath, branchSelect.value, commitSelect.value);
+                        await gitOps.checkoutCommit(fs, pfs, directoryPath, branchSelect.value, commitSelect.value);
                     }
 
-                    await this.updateContentDisplay(directoryPath);
+                    await this.updateContentDisplay(pfs, directoryPath);
                 });
 
                 commitSelect.addEventListener('change', async () => {
-                    await gitOps.checkoutCommit(directoryPath, branchSelect.value, commitSelect.value);
-                    await this.updateContentDisplay(directoryPath);
+                    await gitOps.checkoutCommit(fs, pfs, directoryPath, branchSelect.value, commitSelect.value);
+                    await this.updateContentDisplay(pfs, directoryPath);
                 });
 
                 fetchButton.addEventListener('click', async () => {
                     console.log('Fetch button clicked');
-                    const result = await gitOps.fetchRepo(directoryPath);
+                    const result = await gitOps.fetchRepo(fs, pfs, corsProxy, directoryPath);
                     console.log('Fetch result:', result);
                     if (result.upToDate) {
-                        this.displayErrorMessage('Repository is already up to date. No new commits to fetch.');
+                        this.displayErrorMessage(errorDiv, 'Repository is already up to date. No new commits to fetch.');
                     } else if (result.success) {
                         // Refresh the UI
-                        await this.populateBranchSelect(directoryPath, branchSelect, branchSelect.value);
-                        await this.populateCommitSelect(directoryPath, commitSelect, branchSelect.value, commitSelect.value);
-                        await this.updateContentDisplay(directoryPath);
+                        await this.populateBranchSelect(fs, pfs, directoryPath, branchSelect, branchSelect.value);
+                        await this.populateCommitSelect(fs, pfs, directoryPath, commitSelect, branchSelect.value, commitSelect.value);
+                        await this.updateContentDisplay(pfs, directoryPath);
                         // Display a success message
-                        this.displayErrorMessage('Repository fetched and some branches updated successfully');
+                        this.displayErrorMessage(errorDiv, 'Repository fetched and some branches updated successfully');
                     } else {
-                        this.displayErrorMessage(`Fetch completed, but no branches were updated: ${result.log}`);
+                        this.displayErrorMessage(errorDiv, `Fetch completed, but no branches were updated: ${result.log}`);
                     }
                 });
 
                 deleteBtn.addEventListener('click', async () => {
-                    await gitOps.deleteRepo(directoryPath);
-                    await this.renderRepos();
+                    await gitOps.deleteRepo(pfs, directoryPath);
+                    await this.renderRepos(fs, pfs, corsProxy, errorDiv);
                 });
             },
 
-            async updateContentDisplay(directoryPath) {
+            async updateContentDisplay(pfs, directoryPath) {
                 const dirEntries = await pfs.readdir(directoryPath);
                 const contentDisplay = document.querySelector(`[data-directory="${directoryPath}"]`);
                 if (contentDisplay) {
@@ -627,7 +627,7 @@
                 }
             },
 
-            displayErrorMessage(message) {
+            displayErrorMessage(errorDiv, message) {
                 errorDiv.innerHTML = message;
                 errorDiv.style.display = message ? 'block' : 'none';
             }
@@ -639,29 +639,29 @@
             const repoUrl = document.getElementById('repoUrl').value;
             const pgpKeyUrl = document.getElementById('pgpKeyUrl').value;
             if (repoUrl && pgpKeyUrl) {
-                renderUI.displayErrorMessage('');
-                const result = await gitOps.cloneRepo(repoUrl, pgpKeyUrl);
+                renderUI.displayErrorMessage(errorDiv, '');
+                const result = await gitOps.cloneRepo(fs, pfs, corsProxy, repoUrl, pgpKeyUrl);
                 if (result.success) {
-                    await renderUI.renderRepos();
+                    await renderUI.renderRepos(fs, pfs, corsProxy, errorDiv);
                     // Call listAllDirectoryContents directly
                     console.log("Listing all directory contents:");
-                    await gitOps.listAllDirectoryContents();
+                    await gitOps.listAllDirectoryContents(pfs);
                 } else {
-                    renderUI.displayErrorMessage(result.message);
+                    renderUI.displayErrorMessage(errorDiv, result.message);
                 }
             } else {
-                renderUI.displayErrorMessage('Please fill in both the repository and the PGP Key URLs.');
+                renderUI.displayErrorMessage(errorDiv, 'Please fill in both the repository and the PGP Key URLs.');
             }
         });
 
         document.getElementById('deleteAllButton').addEventListener('click', async () => {
-            await gitOps.deleteAllRepos();
-            await renderUI.renderRepos();
+            await gitOps.deleteAllRepos(pfs);
+            await renderUI.renderRepos(fs, pfs, corsProxy, errorDiv);
         });
 
         // Initialize
         registerServiceWorker();
-        gitOps.checkContent().then(() => renderUI.renderRepos());
+        gitOps.checkContent(pfs).then(() => renderUI.renderRepos(fs, pfs, corsProxy, errorDiv));
     </script>
 </body>
 
