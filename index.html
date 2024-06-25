@@ -319,6 +319,23 @@
                 }
             },
 
+            // List all directory contents for debugging
+            async listAllDirectoryContents() {
+                try {
+                    const rootDirEntries = await pfs.readdir('/');
+                    for (const entry of rootDirEntries) {
+                        const stats = await pfs.stat(`/${entry}`);
+                        if (stats.isDirectory()) {
+                            const dirPath = `/${entry}`;
+                            const dirContents = await pfs.readdir(dirPath);
+                            console.log(`Contents of ${dirPath}:`, dirContents);
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error listing directory contents:', err);
+                }
+            },
+
             // Add this fetch method to the gitOps object
             async fetchRepo(directoryPath) {
                 let logMessage = `Fetching repo in directory: ${directoryPath}\n`;
@@ -626,6 +643,9 @@
                 const result = await gitOps.cloneRepo(repoUrl, pgpKeyUrl);
                 if (result.success) {
                     await renderUI.renderRepos();
+                    // Call listAllDirectoryContents directly
+                    console.log("Listing all directory contents:");
+                    await gitOps.listAllDirectoryContents();
                 } else {
                     renderUI.displayErrorMessage(result.message);
                 }
