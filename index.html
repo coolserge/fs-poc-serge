@@ -177,7 +177,7 @@
                 return await idbKeyval.get(base64Key);  // Using idbKeyval.get
             },
 
-            // Clone repository
+            // Clone a repository, check out the latest commit as a detached HEAD and verify signatures
             async cloneRepo(fs, pfs, corsProxy, repoUrl, pgpKeyUrl) {
                 const directoryPath = `/${repoUrl.split('/').pop().replace(/\.git$/, '')}`;
 
@@ -218,6 +218,9 @@
                     let branches = await git.listBranches({ fs, dir: directoryPath, remote: 'origin' });
                     branches = branches.filter(branch => branch !== 'HEAD');
 
+                    let latestCommit = null;
+                    let latestTimestamp = 0;
+
                     for (const branch of branches) {
                         await git.checkout({ fs, dir: directoryPath, ref: branch });
                         const commits = await git.log({ fs, dir: directoryPath, ref: branch });
@@ -234,6 +237,12 @@
                             const armoredPublicKey = await this.fetchPgpKey(pgpKeyUrl);
                             if (armoredPublicKey && await this.verifySignature(data, armoredSignature, armoredPublicKey)) {
                                 console.log(`Signature for commit ${commit.oid} in branch ${branch} is valid.`);
+
+                                // Check if this commit is the latest
+                                if (commit.commit.author.timestamp > latestTimestamp) {
+                                    latestTimestamp = commit.commit.author.timestamp;
+                                    latestCommit = commit;
+                                }
                             } else {
                                 await this.deleteDirectoryContents(pfs, directoryPath);
                                 await pfs.rmdir(directoryPath);
@@ -241,6 +250,19 @@
                             }
                         }
                     }
+
+                    // Checkout the latest commit
+                    if (latestCommit) {
+                        await git.checkout({
+                            fs,
+                            dir: directoryPath,
+                            ref: latestCommit.oid
+                        });
+                        console.log(`Checked out latest commit: ${latestCommit.oid}`);
+                    } else {
+                        console.warn("No valid commits found. Repository may be empty.");
+                    }
+
                     const publicKey = await this.fetchPgpKey(pgpKeyUrl);
                     await this.storePublicKey(repoUrl, publicKey);
                     return { success: true, directoryPath, branches };
