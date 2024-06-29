@@ -475,6 +475,8 @@
                             const { branchSelect, commitSelect, fetchButton, deleteBtn } = this.createSelects(repoContainer);
 
                             const { branch: currentBranch, commit: currentCommit } = await gitOps.getCurrentBranchAndCommit(fs, pfs, directoryPath);
+                            // Log the currently checked out commit
+                            console.log(`Repository: ${dir}, Current Branch: ${currentBranch || 'detached HEAD'}, Current Commit: ${currentCommit}`);
 
                             await this.populateBranchSelect(fs, pfs, directoryPath, branchSelect, currentBranch);
                             await this.populateCommitSelect(fs, pfs, directoryPath, commitSelect, currentBranch || branchSelect.value, currentCommit);
