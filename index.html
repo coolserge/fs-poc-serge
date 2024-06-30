@@ -415,34 +415,51 @@
 
                             anyNewCommits = true;
 
-                            // Verify the signature of the new commit
-                            const { commit, payload } = await git.readCommit({
+                            // Get all new commits
+                            const newCommits = await git.log({
                                 fs,
                                 dir: directoryPath,
-                                oid: remoteCommit
+                                ref: remoteCommit,
+                                depth: -1,
+                                since: localCommit
                             });
 
-                            if (!commit.gpgsig) {
-                                logMessage += `  Failed to update ${branch}: No signature found for commit ${remoteCommit}\n`;
-                                continue;
+                            let allCommitsValid = true;
+                            for (const commit of newCommits) {
+                                const { commit: commitObj, payload } = await git.readCommit({
+                                    fs,
+                                    dir: directoryPath,
+                                    oid: commit.oid
+                                });
+
+                                if (!commitObj.gpgsig) {
+                                    logMessage += `  Failed to update ${branch}: No signature found for commit ${commit.oid}\n`;
+                                    allCommitsValid = false;
+                                    break;
+                                }
+
+                                const isValid = await this.verifySignature(payload, commitObj.gpgsig, publicKey);
+                                if (!isValid) {
+                                    logMessage += `  Failed to update ${branch}: Invalid signature for commit ${commit.oid}\n`;
+                                    allCommitsValid = false;
+                                    break;
+                                }
                             }
 
-                            const isValid = await this.verifySignature(payload, commit.gpgsig, publicKey);
-                            if (!isValid) {
-                                logMessage += `  Failed to update ${branch}: Invalid signature for commit ${remoteCommit}\n`;
-                                continue;
+                            if (allCommitsValid) {
+                                await git.writeRef({
+                                    fs,
+                                    dir: directoryPath,
+                                    ref: `refs/heads/${branch}`,
+                                    value: remoteCommit,
+                                    force: true
+                                });
+
+                                anyBranchUpdated = true;
+                                logMessage += `  Updated ${branch} to ${remoteCommit} (all signatures verified)\n`;
+                            } else {
+                                logMessage += `  Failed to update ${branch}: Some commits have missing or invalid signatures\n`;
                             }
-
-                            await git.writeRef({
-                                fs,
-                                dir: directoryPath,
-                                ref: `refs/heads/${branch}`,
-                                value: remoteCommit,
-                                force: true
-                            });
-
-                            anyBranchUpdated = true;
-                            logMessage += `  Updated ${branch} to ${remoteCommit} (signature verified)\n`;
                         } catch (branchError) {
                             logMessage += `  Failed to update ${branch}: ${branchError.message}\n`;
                         }
