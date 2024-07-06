@@ -167,17 +167,28 @@
                         const base64Key = btoa(String.fromCharCode.apply(null, new Uint8Array(key)));
                         const iframe = document.getElementById('secureStorageFrame');
 
+                        if (!iframe || !iframe.contentWindow) {
+                            reject(new Error('Secure storage iframe not found or not ready'));
+                            return;
+                        }
+
                         const messageHandler = (event) => {
                             if (event.origin !== "https://www.sandstonemountain.com") return;
                             if (event.data.action === 'setResponse') {
                                 window.removeEventListener('message', messageHandler);
+                                clearTimeout(timeoutId);
                                 if (event.data.success) {
                                     resolve();
                                 } else {
-                                    reject(new Error('Failed to store public key'));
+                                    reject(new Error(event.data.error || 'Failed to store public key'));
                                 }
                             }
                         };
+
+                        const timeoutId = setTimeout(() => {
+                            window.removeEventListener('message', messageHandler);
+                            reject(new Error('Timeout while storing public key'));
+                        }, 5000); // 5 second timeout
 
                         window.addEventListener('message', messageHandler);
 
@@ -186,7 +197,7 @@
                             key: base64Key,
                             value: publicKey
                         }, "https://www.sandstonemountain.com");
-                    });
+                    }).catch(reject);
                 });
             },
 
@@ -198,17 +209,28 @@
                         const base64Key = btoa(String.fromCharCode.apply(null, new Uint8Array(key)));
                         const iframe = document.getElementById('secureStorageFrame');
 
+                        if (!iframe || !iframe.contentWindow) {
+                            reject(new Error('Secure storage iframe not found or not ready'));
+                            return;
+                        }
+
                         const messageHandler = (event) => {
                             if (event.origin !== "https://www.sandstonemountain.com") return;
                             if (event.data.action === 'getResponse') {
                                 window.removeEventListener('message', messageHandler);
+                                clearTimeout(timeoutId);
                                 if (event.data.success) {
                                     resolve(event.data.value);
                                 } else {
-                                    reject(new Error('Failed to retrieve public key'));
+                                    reject(new Error(event.data.error || 'Failed to retrieve public key'));
                                 }
                             }
                         };
+
+                        const timeoutId = setTimeout(() => {
+                            window.removeEventListener('message', messageHandler);
+                            reject(new Error('Timeout while retrieving public key'));
+                        }, 5000); // 5 second timeout
 
                         window.addEventListener('message', messageHandler);
 
@@ -216,7 +238,7 @@
                             action: 'get',
                             key: base64Key
                         }, "https://www.sandstonemountain.com");
-                    });
+                    }).catch(reject);
                 });
             },
 
