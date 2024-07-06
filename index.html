@@ -159,91 +159,120 @@
                 }
             },
 
-            // Store public key in cross-origin iframe's IndexedDB
-            async storePublicKey(repoUrl, publicKey) {
+            // Store data in cross-origin iframe's IndexedDB
+            async secureStore(dataType, key, value) {
                 return new Promise((resolve, reject) => {
-                    const encoder = new TextEncoder();
-                    crypto.subtle.digest('SHA-256', encoder.encode(repoUrl)).then(key => {
-                        const base64Key = btoa(String.fromCharCode.apply(null, new Uint8Array(key)));
-                        const iframe = document.getElementById('secureStorageFrame');
+                    const iframe = document.getElementById('secureStorageFrame');
 
-                        if (!iframe || !iframe.contentWindow) {
-                            reject(new Error('Secure storage iframe not found or not ready'));
-                            return;
-                        }
+                    if (!iframe || !iframe.contentWindow) {
+                        reject(new Error('Secure storage iframe not found or not ready'));
+                        return;
+                    }
 
-                        const messageHandler = (event) => {
-                            if (event.origin !== "https://www.sandstonemountain.com") return;
-                            if (event.data.action === 'setResponse') {
-                                window.removeEventListener('message', messageHandler);
-                                clearTimeout(timeoutId);
-                                if (event.data.success) {
-                                    resolve();
-                                } else {
-                                    reject(new Error(event.data.error || 'Failed to store public key'));
-                                }
-                            }
-                        };
-
-                        const timeoutId = setTimeout(() => {
+                    const messageHandler = (event) => {
+                        if (event.origin !== "https://www.sandstonemountain.com") return;
+                        if (event.data.action === 'setResponse') {
                             window.removeEventListener('message', messageHandler);
-                            reject(new Error('Timeout while storing public key'));
-                        }, 5000); // 5 second timeout
+                            clearTimeout(timeoutId);
+                            if (event.data.success) {
+                                resolve();
+                            } else {
+                                reject(new Error(event.data.error || 'Failed to store data'));
+                            }
+                        }
+                    };
 
-                        window.addEventListener('message', messageHandler);
+                    const timeoutId = setTimeout(() => {
+                        window.removeEventListener('message', messageHandler);
+                        reject(new Error('Timeout while storing data'));
+                    }, 5000);
 
-                        console.log("Sending storePublicKey message. Pathname:", window.location.pathname);
-                        iframe.contentWindow.postMessage({
-                            action: 'set',
-                            key: base64Key,
-                            value: publicKey,
-                            pathname: window.location.pathname
-                        }, "https://www.sandstonemountain.com");
-                    }).catch(reject);
+                    window.addEventListener('message', messageHandler);
+
+                    console.log(`Sending secureStore message. Pathname: ${window.location.pathname}, DataType: ${dataType}`);
+                    iframe.contentWindow.postMessage({
+                        action: 'set',
+                        dataType,
+                        key,
+                        value,
+                        pathname: window.location.pathname
+                    }, "https://www.sandstonemountain.com");
                 });
             },
 
-            // Get public key from cross-origin iframe's IndexedDB
-            async getStoredPublicKey(repoUrl) {
+            // Retrieve data from cross-origin iframe's IndexedDB
+            async secureRetrieve(dataType, key) {
                 return new Promise((resolve, reject) => {
-                    const encoder = new TextEncoder();
-                    crypto.subtle.digest('SHA-256', encoder.encode(repoUrl)).then(key => {
-                        const base64Key = btoa(String.fromCharCode.apply(null, new Uint8Array(key)));
-                        const iframe = document.getElementById('secureStorageFrame');
+                    const iframe = document.getElementById('secureStorageFrame');
 
-                        if (!iframe || !iframe.contentWindow) {
-                            reject(new Error('Secure storage iframe not found or not ready'));
-                            return;
-                        }
+                    if (!iframe || !iframe.contentWindow) {
+                        reject(new Error('Secure storage iframe not found or not ready'));
+                        return;
+                    }
 
-                        const messageHandler = (event) => {
-                            if (event.origin !== "https://www.sandstonemountain.com") return;
-                            if (event.data.action === 'getResponse') {
-                                window.removeEventListener('message', messageHandler);
-                                clearTimeout(timeoutId);
-                                if (event.data.success) {
-                                    resolve(event.data.value);
-                                } else {
-                                    reject(new Error(event.data.error || 'Failed to retrieve public key'));
-                                }
-                            }
-                        };
-
-                        const timeoutId = setTimeout(() => {
+                    const messageHandler = (event) => {
+                        if (event.origin !== "https://www.sandstonemountain.com") return;
+                        if (event.data.action === 'getResponse') {
                             window.removeEventListener('message', messageHandler);
-                            reject(new Error('Timeout while retrieving public key'));
-                        }, 5000); // 5 second timeout
+                            clearTimeout(timeoutId);
+                            if (event.data.success) {
+                                resolve(event.data.value);
+                            } else {
+                                reject(new Error(event.data.error || 'Failed to retrieve data'));
+                            }
+                        }
+                    };
 
-                        window.addEventListener('message', messageHandler);
+                    const timeoutId = setTimeout(() => {
+                        window.removeEventListener('message', messageHandler);
+                        reject(new Error('Timeout while retrieving data'));
+                    }, 5000);
 
-                        console.log("Sending getStoredPublicKey message. Pathname:", window.location.pathname);
-                        iframe.contentWindow.postMessage({
-                            action: 'get',
-                            key: base64Key,
-                            pathname: window.location.pathname
-                        }, "https://www.sandstonemountain.com");
-                    }).catch(reject);
+                    window.addEventListener('message', messageHandler);
+
+                    console.log(`Sending secureRetrieve message. Pathname: ${window.location.pathname}, DataType: ${dataType}`);
+                    iframe.contentWindow.postMessage({
+                        action: 'get',
+                        dataType,
+                        key,
+                        pathname: window.location.pathname
+                    }, "https://www.sandstonemountain.com");
                 });
+            },
+
+            // Store public key in cross-origin iframe's IndexedDB
+            async storePublicKey(repoUrl, publicKey) {
+                try {
+                    const encoder = new TextEncoder();
+                    const keyBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(repoUrl));
+                    const base64Key = btoa(String.fromCharCode.apply(null, new Uint8Array(keyBuffer)));
+
+                    await this.secureStore('pgpKeys', base64Key, publicKey);
+                    console.log(`Public key stored successfully for ${repoUrl}`);
+                } catch (error) {
+                    console.error(`Failed to store public key for ${repoUrl}:`, error);
+                    throw error;
+                }
+            },
+
+            // Retrieve public key from cross-origin iframe's IndexedDB
+            async getStoredPublicKey(repoUrl) {
+                try {
+                    const encoder = new TextEncoder();
+                    const keyBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(repoUrl));
+                    const base64Key = btoa(String.fromCharCode.apply(null, new Uint8Array(keyBuffer)));
+
+                    const publicKey = await this.secureRetrieve('pgpKeys', base64Key);
+                    if (!publicKey) {
+                        console.log(`No public key found for ${repoUrl}`);
+                        return null;
+                    }
+                    console.log(`Public key retrieved successfully for ${repoUrl}`);
+                    return publicKey;
+                } catch (error) {
+                    console.error(`Failed to retrieve public key for ${repoUrl}:`, error);
+                    throw error;
+                }
             },
 
             // Clone a repository, check out the latest commit as a detached HEAD and verify signatures
@@ -333,10 +362,25 @@
                     }
 
                     const publicKey = await this.fetchPgpKey(pgpKeyUrl);
-                    await this.storePublicKey(repoUrl, publicKey);
+                    try {
+                        await this.storePublicKey(repoUrl, publicKey);
+                    } catch (error) {
+                        console.error("Failed to store public key. Deleting cloned repository.");
+                        await this.deleteDirectoryContents(pfs, directoryPath);
+                        await pfs.rmdir(directoryPath);
+                        throw new Error(`Failed to store public key: ${error.message}`);
+                    }
+
                     return { success: true, directoryPath, branches };
                 } catch (error) {
                     console.error("Cloning failed:", error);
+                    // Ensure the directory is deleted if anything fails
+                    try {
+                        await this.deleteDirectoryContents(pfs, directoryPath);
+                        await pfs.rmdir(directoryPath);
+                    } catch (deleteError) {
+                        console.error("Error deleting directory after failed clone:", deleteError);
+                    }
                     return { success: false, message: error.message };
                 }
             },

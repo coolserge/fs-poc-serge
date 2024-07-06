@@ -8,16 +8,20 @@
         // Open IndexedDB
         let db;
         const dbName = "SecureStorage";
-        const request = indexedDB.open(dbName, 1);
+        const dbVersion = 1;
+        const request = indexedDB.open(dbName, dbVersion);
+
         request.onerror = (event) => {
             console.error("IndexedDB error:", event.target.error);
         };
+
         request.onsuccess = (event) => {
             db = event.target.result;
         };
+
         request.onupgradeneeded = (event) => {
             db = event.target.result;
-            const objectStore = db.createObjectStore("keys", { keyPath: ["origin", "key"] });
+            const objectStore = db.createObjectStore("secureData", { keyPath: ["origin", "dataType", "key"] });
         };
 
         // Function to safely send a message to the parent
@@ -39,13 +43,13 @@
                 return;
             }
 
-            const { action, key, value } = event.data;
+            const { action, dataType, key, value } = event.data;
             const origin = event.origin;
 
             if (action === 'set') {
-                const transaction = db.transaction(["keys"], "readwrite");
-                const objectStore = transaction.objectStore("keys");
-                const request = objectStore.put({ origin, key, value });
+                const transaction = db.transaction(["secureData"], "readwrite");
+                const objectStore = transaction.objectStore("secureData");
+                const request = objectStore.put({ origin, dataType, key, value });
                 request.onerror = () => {
                     safePostMessage({ action: 'setResponse', success: false, error: request.error.message }, origin);
                 };
@@ -53,17 +57,39 @@
                     safePostMessage({ action: 'setResponse', success: true }, origin);
                 };
             } else if (action === 'get') {
-                const transaction = db.transaction(["keys"], "readonly");
-                const objectStore = transaction.objectStore("keys");
-                const request = objectStore.get([origin, key]);
+                const transaction = db.transaction(["secureData"], "readonly");
+                const objectStore = transaction.objectStore("secureData");
+                const request = objectStore.get([origin, dataType, key]);
                 request.onerror = () => {
                     safePostMessage({ action: 'getResponse', success: false, error: request.error.message }, origin);
                 };
                 request.onsuccess = () => {
                     safePostMessage({ action: 'getResponse', success: true, value: request.result ? request.result.value : null }, origin);
                 };
+            } else if (action === 'delete') {
+                const transaction = db.transaction(["secureData"], "readwrite");
+                const objectStore = transaction.objectStore("secureData");
+                const request = objectStore.delete([origin, dataType, key]);
+                request.onerror = () => {
+                    safePostMessage({ action: 'deleteResponse', success: false, error: request.error.message }, origin);
+                };
+                request.onsuccess = () => {
+                    safePostMessage({ action: 'deleteResponse', success: true }, origin);
+                };
+            } else if (action === 'list') {
+                const transaction = db.transaction(["secureData"], "readonly");
+                const objectStore = transaction.objectStore("secureData");
+                const request = objectStore.getAll();
+                request.onerror = () => {
+                    safePostMessage({ action: 'listResponse', success: false, error: request.error.message }, origin);
+                };
+                request.onsuccess = () => {
+                    const items = request.result.filter(item => item.origin === origin);
+                    safePostMessage({ action: 'listResponse', success: true, items }, origin);
+                };
             }
         });
     </script>
 </body>
 </html>
+
