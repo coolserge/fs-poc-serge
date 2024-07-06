@@ -275,6 +275,17 @@
                 }
             },
 
+            /* Here is how generic store and retrieve operations can work for more than just keys
+            // Store other types of data
+            await secureStore('userPreferences', 'theme', 'dark');
+            await secureStore('sessionData', 'lastLogin', new Date().toISOString());
+
+            // Retrieve other types of data
+            const theme = await secureRetrieve('userPreferences', 'theme');
+            const lastLogin = await secureRetrieve('sessionData', 'lastLogin');
+
+            */
+
             // Clone a repository, check out the latest commit as a detached HEAD and verify signatures
             async cloneRepo(fs, pfs, corsProxy, repoUrl, pgpKeyUrl) {
                 const directoryPath = `/${repoUrl.split('/').pop().replace(/\.git$/, '')}`;
