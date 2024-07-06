@@ -192,17 +192,18 @@
 
                         window.addEventListener('message', messageHandler);
 
+                        console.log("Sending storePublicKey message. Pathname:", window.location.pathname);
                         iframe.contentWindow.postMessage({
                             action: 'set',
                             key: base64Key,
                             value: publicKey,
-                            pathname: window.location.pathname  // Add this line
+                            pathname: window.location.pathname
                         }, "https://www.sandstonemountain.com");
                     }).catch(reject);
                 });
             },
 
-            // Get stored public key from cross-origin iframe's IndexedDB
+            // Get public key from cross-origin iframe's IndexedDB
             async getStoredPublicKey(repoUrl) {
                 return new Promise((resolve, reject) => {
                     const encoder = new TextEncoder();
@@ -235,10 +236,11 @@
 
                         window.addEventListener('message', messageHandler);
 
+                        console.log("Sending getStoredPublicKey message. Pathname:", window.location.pathname);
                         iframe.contentWindow.postMessage({
                             action: 'get',
                             key: base64Key,
-                            pathname: window.location.pathname  // Add this line
+                            pathname: window.location.pathname
                         }, "https://www.sandstonemountain.com");
                     }).catch(reject);
                 });
