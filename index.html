@@ -159,20 +159,65 @@
                 }
             },
 
-            // Store public key in IndexedDB
+            // Store public key in cross-origin iframe's IndexedDB
             async storePublicKey(repoUrl, publicKey) {
-                const encoder = new TextEncoder();
-                const key = await crypto.subtle.digest('SHA-256', encoder.encode(repoUrl));
-                const base64Key = btoa(String.fromCharCode.apply(null, new Uint8Array(key)));
-                await idbKeyval.set(base64Key, publicKey);  // Using idbKeyval.set
+                return new Promise((resolve, reject) => {
+                    const encoder = new TextEncoder();
+                    crypto.subtle.digest('SHA-256', encoder.encode(repoUrl)).then(key => {
+                        const base64Key = btoa(String.fromCharCode.apply(null, new Uint8Array(key)));
+                        const iframe = document.getElementById('secureStorageFrame');
+
+                        const messageHandler = (event) => {
+                            if (event.origin !== "https://www.sandstonemountain.com") return;
+                            if (event.data.action === 'setResponse') {
+                                window.removeEventListener('message', messageHandler);
+                                if (event.data.success) {
+                                    resolve();
+                                } else {
+                                    reject(new Error('Failed to store public key'));
+                                }
+                            }
+                        };
+
+                        window.addEventListener('message', messageHandler);
+
+                        iframe.contentWindow.postMessage({
+                            action: 'set',
+                            key: base64Key,
+                            value: publicKey
+                        }, "https://www.sandstonemountain.com");
+                    });
+                });
             },
 
-            // Get stored public key from IndexedDB
+            // Get stored public key from cross-origin iframe's IndexedDB
             async getStoredPublicKey(repoUrl) {
-                const encoder = new TextEncoder();
-                const key = await crypto.subtle.digest('SHA-256', encoder.encode(repoUrl));
-                const base64Key = btoa(String.fromCharCode.apply(null, new Uint8Array(key)));
-                return await idbKeyval.get(base64Key);  // Using idbKeyval.get
+                return new Promise((resolve, reject) => {
+                    const encoder = new TextEncoder();
+                    crypto.subtle.digest('SHA-256', encoder.encode(repoUrl)).then(key => {
+                        const base64Key = btoa(String.fromCharCode.apply(null, new Uint8Array(key)));
+                        const iframe = document.getElementById('secureStorageFrame');
+
+                        const messageHandler = (event) => {
+                            if (event.origin !== "https://www.sandstonemountain.com") return;
+                            if (event.data.action === 'getResponse') {
+                                window.removeEventListener('message', messageHandler);
+                                if (event.data.success) {
+                                    resolve(event.data.value);
+                                } else {
+                                    reject(new Error('Failed to retrieve public key'));
+                                }
+                            }
+                        };
+
+                        window.addEventListener('message', messageHandler);
+
+                        iframe.contentWindow.postMessage({
+                            action: 'get',
+                            key: base64Key
+                        }, "https://www.sandstonemountain.com");
+                    });
+                });
             },
 
             // Clone a repository, check out the latest commit as a detached HEAD and verify signatures
@@ -702,6 +747,8 @@
         registerServiceWorker();
         gitOps.checkContent(pfs).then(() => renderUI.renderRepos(fs, pfs, corsProxy, messageDiv));
     </script>
+    <iframe src="https://www.sandstonemountain.com/secure-storage.html" style="display:none"
+        id="secureStorageFrame"></iframe>
 </body>
 
 </html>
