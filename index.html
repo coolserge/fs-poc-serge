@@ -159,85 +159,60 @@
                 }
             },
 
-            // Store data in cross-origin iframe's IndexedDB
-            async secureStore(dataType, key, value) {
-                return new Promise((resolve, reject) => {
-                    const iframe = document.getElementById('secureStorageFrame');
+            iframeOrigin: 'https://www.sandstonemountain.com',
+            iframeId: 'secureStorageFrame',
+            iframe: document.getElementById('secureStorageFrame'),
+            messageId: 0,
 
-                    if (!iframe || !iframe.contentWindow) {
-                        reject(new Error('Secure storage iframe not found or not ready'));
-                        return;
+            // Send message to iframe
+            sendMessageToIframe(action, dataType, key, value = null) {
+                return new Promise((resolve, reject) => {
+                    if (!this.iframe || !this.iframe.contentWindow) {
+                        this.iframe = document.getElementById(this.iframeId);
+                        if (!this.iframe) {
+                            reject(new Error('Iframe not found'));
+                            return;
+                        }
                     }
 
-                    const messageHandler = (event) => {
-                        if (event.origin !== "https://www.sandstonemountain.com") return;
-                        if (event.data.action === 'setResponse') {
-                            window.removeEventListener('message', messageHandler);
-                            clearTimeout(timeoutId);
-                            if (event.data.success) {
-                                resolve();
-                            } else {
-                                reject(new Error(event.data.error || 'Failed to store data'));
-                            }
+                    const id = this.messageId++;
+                    const message = { id, action, dataType, key, value, pathname: window.location.pathname };
+
+                    const timeoutId = setTimeout(() => {
+                        window.removeEventListener('message', responseHandler);
+                        reject(new Error('Iframe communication timeout'));
+                    }, 5000);
+
+                    const responseHandler = (event) => {
+                        if (event.origin !== this.iframeOrigin || event.data.id !== id) return;
+                        clearTimeout(timeoutId);
+                        window.removeEventListener('message', responseHandler);
+                        if (event.data.success) {
+                            resolve(event.data.value);
+                        } else {
+                            reject(new Error(event.data.error || 'Operation failed'));
                         }
                     };
 
-                    const timeoutId = setTimeout(() => {
-                        window.removeEventListener('message', messageHandler);
-                        reject(new Error('Timeout while storing data'));
-                    }, 5000);
-
-                    window.addEventListener('message', messageHandler);
-
-                    console.log(`Sending secureStore message. Pathname: ${window.location.pathname}, DataType: ${dataType}`);
-                    iframe.contentWindow.postMessage({
-                        action: 'set',
-                        dataType,
-                        key,
-                        value,
-                        pathname: window.location.pathname
-                    }, "https://www.sandstonemountain.com");
+                    window.addEventListener('message', responseHandler);
+                    this.iframe.contentWindow.postMessage(message, this.iframeOrigin);
                 });
             },
 
-            // Retrieve data from cross-origin iframe's IndexedDB
-            async secureRetrieve(dataType, key) {
-                return new Promise((resolve, reject) => {
-                    const iframe = document.getElementById('secureStorageFrame');
-
-                    if (!iframe || !iframe.contentWindow) {
-                        reject(new Error('Secure storage iframe not found or not ready'));
-                        return;
-                    }
-
-                    const messageHandler = (event) => {
-                        if (event.origin !== "https://www.sandstonemountain.com") return;
-                        if (event.data.action === 'getResponse') {
-                            window.removeEventListener('message', messageHandler);
-                            clearTimeout(timeoutId);
-                            if (event.data.success) {
-                                resolve(event.data.value);
-                            } else {
-                                reject(new Error(event.data.error || 'Failed to retrieve data'));
-                            }
-                        }
-                    };
-
-                    const timeoutId = setTimeout(() => {
-                        window.removeEventListener('message', messageHandler);
-                        reject(new Error('Timeout while retrieving data'));
-                    }, 5000);
-
-                    window.addEventListener('message', messageHandler);
-
-                    console.log(`Sending secureRetrieve message. Pathname: ${window.location.pathname}, DataType: ${dataType}`);
-                    iframe.contentWindow.postMessage({
-                        action: 'get',
-                        dataType,
-                        key,
-                        pathname: window.location.pathname
-                    }, "https://www.sandstonemountain.com");
-                });
+            // Secure storage functions
+            secureStorage: {
+                async set(dataType, key, value) {
+                    return gitOps.sendMessageToIframe('set', dataType, key, value);
+                },
+                async get(dataType, key) {
+                    return gitOps.sendMessageToIframe('get', dataType, key);
+                },
+                async delete(dataType, key) {
+                    return gitOps.sendMessageToIframe('delete', dataType, key);
+                },
+                async list(dataType) {
+                    return gitOps.sendMessageToIframe('list', dataType);
+                }
             },
 
             // Store public key in cross-origin iframe's IndexedDB
@@ -247,7 +222,7 @@
                     const keyBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(repoUrl));
                     const base64Key = btoa(String.fromCharCode.apply(null, new Uint8Array(keyBuffer)));
 
-                    await this.secureStore('pgpKeys', base64Key, publicKey);
+                    await this.secureStorage.set('pgpKeys', base64Key, publicKey);
                     console.log(`Public key stored successfully for ${repoUrl}`);
                 } catch (error) {
                     console.error(`Failed to store public key for ${repoUrl}:`, error);
@@ -262,7 +237,7 @@
                     const keyBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(repoUrl));
                     const base64Key = btoa(String.fromCharCode.apply(null, new Uint8Array(keyBuffer)));
 
-                    const publicKey = await this.secureRetrieve('pgpKeys', base64Key);
+                    const publicKey = await this.secureStorage.get('pgpKeys', base64Key);
                     if (!publicKey) {
                         console.log(`No public key found for ${repoUrl}`);
                         return null;
@@ -274,17 +249,6 @@
                     throw error;
                 }
             },
-
-            /* Here is how generic store and retrieve operations can work for more than just keys
-            // Store other types of data
-            await secureStore('userPreferences', 'theme', 'dark');
-            await secureStore('sessionData', 'lastLogin', new Date().toISOString());
-
-            // Retrieve other types of data
-            const theme = await secureRetrieve('userPreferences', 'theme');
-            const lastLogin = await secureRetrieve('sessionData', 'lastLogin');
-
-            */
 
             // Clone a repository, check out the latest commit as a detached HEAD and verify signatures
             async cloneRepo(fs, pfs, corsProxy, repoUrl, pgpKeyUrl) {

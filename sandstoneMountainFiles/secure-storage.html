@@ -33,9 +33,53 @@
             }
         }
 
+        // IndexedDB operations
+        async function setData(origin, dataType, key, value) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(["secureData"], "readwrite");
+                const objectStore = transaction.objectStore("secureData");
+                const request = objectStore.put({ origin, dataType, key, value });
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => resolve();
+            });
+        }
+
+        async function getData(origin, dataType, key) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(["secureData"], "readonly");
+                const objectStore = transaction.objectStore("secureData");
+                const request = objectStore.get([origin, dataType, key]);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => resolve(request.result ? request.result.value : null);
+            });
+        }
+
+        async function deleteData(origin, dataType, key) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(["secureData"], "readwrite");
+                const objectStore = transaction.objectStore("secureData");
+                const request = objectStore.delete([origin, dataType, key]);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => resolve();
+            });
+        }
+
+        async function listData(origin, dataType) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(["secureData"], "readonly");
+                const objectStore = transaction.objectStore("secureData");
+                const request = objectStore.getAll();
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    const items = request.result.filter(item => item.origin === origin && item.dataType === dataType);
+                    resolve(items.map(item => item.key));
+                };
+            });
+        }
+
         // Listen for messages from the parent window
         window.addEventListener('message', async (event) => {
-            console.log("Received message. Origin:", event.origin, "Pathname:", event.data.pathname);
+            console.log("Received message. Origin:", event.origin, "Data:", event.data);
 
             // Strictly check for root path
             if (event.data.pathname !== '/') {
@@ -43,53 +87,39 @@
                 return;
             }
 
-            const { action, dataType, key, value } = event.data;
+            const { id, action, dataType, key, value } = event.data;
             const origin = event.origin;
 
-            if (action === 'set') {
-                const transaction = db.transaction(["secureData"], "readwrite");
-                const objectStore = transaction.objectStore("secureData");
-                const request = objectStore.put({ origin, dataType, key, value });
-                request.onerror = () => {
-                    safePostMessage({ action: 'setResponse', success: false, error: request.error.message }, origin);
-                };
-                request.onsuccess = () => {
-                    safePostMessage({ action: 'setResponse', success: true }, origin);
-                };
-            } else if (action === 'get') {
-                const transaction = db.transaction(["secureData"], "readonly");
-                const objectStore = transaction.objectStore("secureData");
-                const request = objectStore.get([origin, dataType, key]);
-                request.onerror = () => {
-                    safePostMessage({ action: 'getResponse', success: false, error: request.error.message }, origin);
-                };
-                request.onsuccess = () => {
-                    safePostMessage({ action: 'getResponse', success: true, value: request.result ? request.result.value : null }, origin);
-                };
-            } else if (action === 'delete') {
-                const transaction = db.transaction(["secureData"], "readwrite");
-                const objectStore = transaction.objectStore("secureData");
-                const request = objectStore.delete([origin, dataType, key]);
-                request.onerror = () => {
-                    safePostMessage({ action: 'deleteResponse', success: false, error: request.error.message }, origin);
-                };
-                request.onsuccess = () => {
-                    safePostMessage({ action: 'deleteResponse', success: true }, origin);
-                };
-            } else if (action === 'list') {
-                const transaction = db.transaction(["secureData"], "readonly");
-                const objectStore = transaction.objectStore("secureData");
-                const request = objectStore.getAll();
-                request.onerror = () => {
-                    safePostMessage({ action: 'listResponse', success: false, error: request.error.message }, origin);
-                };
-                request.onsuccess = () => {
-                    const items = request.result.filter(item => item.origin === origin);
-                    safePostMessage({ action: 'listResponse', success: true, items }, origin);
-                };
+            let response = { id, action: `${action}Response`, success: false };
+
+            try {
+                switch (action) {
+                    case 'set':
+                        await setData(origin, dataType, key, value);
+                        response.success = true;
+                        break;
+                    case 'get':
+                        response.value = await getData(origin, dataType, key);
+                        response.success = true;
+                        break;
+                    case 'delete':
+                        await deleteData(origin, dataType, key);
+                        response.success = true;
+                        break;
+                    case 'list':
+                        response.value = await listData(origin, dataType);
+                        response.success = true;
+                        break;
+                    default:
+                        throw new Error('Unknown action');
+                }
+            } catch (error) {
+                console.error("Operation error:", error);
+                response.error = error.message;
             }
+
+            safePostMessage(response, origin);
         });
     </script>
 </body>
 </html>
-
