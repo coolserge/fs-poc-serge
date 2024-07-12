@@ -189,8 +189,33 @@
 
                             this.updateDisplayMessage(`Sending message to iframe (Attempt ${attempt + 1})`);
 
-                            // ... rest of the function remains the same ...
+                            const responsePromise = new Promise((innerResolve, innerReject) => {
+                                const timeoutId = setTimeout(() => {
+                                    window.removeEventListener('message', responseHandler);
+                                    this.updateDisplayMessage(`Iframe communication timeout (Attempt ${attempt + 1})`);
+                                    innerReject(new Error('Iframe communication timeout'));
+                                }, 5000);
 
+                                const responseHandler = (event) => {
+                                    if (event.origin !== this.iframeOrigin || event.data.id !== id) return;
+                                    clearTimeout(timeoutId);
+                                    window.removeEventListener('message', responseHandler);
+                                    if (event.data.success) {
+                                        this.updateDisplayMessage(`Received successful response from iframe (Attempt ${attempt + 1})`);
+                                        innerResolve(event.data.value);
+                                    } else {
+                                        this.updateDisplayMessage(`Received error response from iframe: ${event.data.error} (Attempt ${attempt + 1})`);
+                                        innerReject(new Error(event.data.error || 'Operation failed'));
+                                    }
+                                };
+
+                                window.addEventListener('message', responseHandler);
+                                this.iframe.contentWindow.postMessage(message, this.iframeOrigin);
+                            });
+
+                            const result = await responsePromise;
+                            resolve(result);
+                            return; // Success, exit the retry loop
                         } catch (error) {
                             this.updateDisplayMessage(`Attempt ${attempt + 1} failed: ${error.message}`);
                             if (attempt === retries) {
@@ -217,22 +242,41 @@
                         document.body.appendChild(this.iframe);
                     }
 
+                    let timeoutId;
+
                     const checkIframeLoaded = () => {
                         if (this.iframe.contentWindow) {
-                            this.updateDisplayMessage('Iframe reconnected successfully');
-                            resolve();
+                            this.updateDisplayMessage('Iframe contentWindow is available');
+                            try {
+                                this.iframe.contentWindow.postMessage({ action: 'ping' }, this.iframeOrigin);
+                                this.updateDisplayMessage('Ping sent to iframe');
+                            } catch (error) {
+                                this.updateDisplayMessage(`Error sending ping: ${error.message}`);
+                            }
                         } else {
-                            setTimeout(checkIframeLoaded, 100); // Check again after 100ms
+                            this.updateDisplayMessage('Iframe contentWindow not yet available, retrying...');
+                            setTimeout(checkIframeLoaded, 100);
                         }
                     };
 
+                    const messageListener = (event) => {
+                        if (event.origin === this.iframeOrigin && event.data.action === 'pong') {
+                            this.updateDisplayMessage('Received pong from iframe, connection established');
+                            window.removeEventListener('message', messageListener);
+                            clearTimeout(timeoutId);
+                            resolve();
+                        }
+                    };
+
+                    window.addEventListener('message', messageListener);
+
                     checkIframeLoaded();
 
-                    // Set a timeout in case the iframe fails to load
-                    setTimeout(() => {
+                    timeoutId = setTimeout(() => {
+                        window.removeEventListener('message', messageListener);
                         this.updateDisplayMessage('Iframe reconnection timeout');
                         reject(new Error('Iframe reconnection timeout'));
-                    }, 10000); // 10 second timeout
+                    }, 10000);
                 });
             },
 

@@ -5,6 +5,8 @@
 </head>
 <body>
     <script>
+        console.log("Secure storage iframe loaded");
+
         // Function to safely send a message to the parent
         function safePostMessage(message, targetOrigin) {
             if (window.parent && window.parent !== window) {
@@ -39,8 +41,15 @@
         }
 
         // Listen for messages from the parent window
-        window.addEventListener('message', (event) => {
+        window.addEventListener('message', async (event) => {
             console.log("Received message. Origin:", event.origin, "Data:", event.data);
+
+            // Handle ping message
+            if (event.data.action === 'ping') {
+                console.log("Received ping, sending pong");
+                event.source.postMessage({ action: 'pong' }, event.origin);
+                return;
+            }
 
             // Strictly check for root path
             if (event.data.pathname !== '/') {
@@ -79,10 +88,11 @@
                 response.error = error.message;
             }
 
+            console.log("Sending response:", response);
             safePostMessage(response, origin);
         });
 
-        console.log("Secure storage (localStorage) initialized");
+        console.log("Secure storage (localStorage) initialized and ready");
     </script>
 </body>
 </html>
