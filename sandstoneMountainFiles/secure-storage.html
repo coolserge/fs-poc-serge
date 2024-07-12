@@ -5,25 +5,6 @@
 </head>
 <body>
     <script>
-        // Open IndexedDB
-        let db;
-        const dbName = "SecureStorage";
-        const dbVersion = 1;
-        const request = indexedDB.open(dbName, dbVersion);
-
-        request.onerror = (event) => {
-            console.error("IndexedDB error:", event.target.error);
-        };
-
-        request.onsuccess = (event) => {
-            db = event.target.result;
-        };
-
-        request.onupgradeneeded = (event) => {
-            db = event.target.result;
-            const objectStore = db.createObjectStore("secureData", { keyPath: ["origin", "dataType", "key"] });
-        };
-
         // Function to safely send a message to the parent
         function safePostMessage(message, targetOrigin) {
             if (window.parent && window.parent !== window) {
@@ -33,52 +14,32 @@
             }
         }
 
-        // IndexedDB operations
-        async function setData(origin, dataType, key, value) {
-            return new Promise((resolve, reject) => {
-                const transaction = db.transaction(["secureData"], "readwrite");
-                const objectStore = transaction.objectStore("secureData");
-                const request = objectStore.put({ origin, dataType, key, value });
-                request.onerror = () => reject(request.error);
-                request.onsuccess = () => resolve();
-            });
+        // localStorage operations
+        function setData(origin, dataType, key, value) {
+            const storageKey = `${origin}:${dataType}:${key}`;
+            localStorage.setItem(storageKey, JSON.stringify(value));
         }
 
-        async function getData(origin, dataType, key) {
-            return new Promise((resolve, reject) => {
-                const transaction = db.transaction(["secureData"], "readonly");
-                const objectStore = transaction.objectStore("secureData");
-                const request = objectStore.get([origin, dataType, key]);
-                request.onerror = () => reject(request.error);
-                request.onsuccess = () => resolve(request.result ? request.result.value : null);
-            });
+        function getData(origin, dataType, key) {
+            const storageKey = `${origin}:${dataType}:${key}`;
+            const value = localStorage.getItem(storageKey);
+            return value ? JSON.parse(value) : null;
         }
 
-        async function deleteData(origin, dataType, key) {
-            return new Promise((resolve, reject) => {
-                const transaction = db.transaction(["secureData"], "readwrite");
-                const objectStore = transaction.objectStore("secureData");
-                const request = objectStore.delete([origin, dataType, key]);
-                request.onerror = () => reject(request.error);
-                request.onsuccess = () => resolve();
-            });
+        function deleteData(origin, dataType, key) {
+            const storageKey = `${origin}:${dataType}:${key}`;
+            localStorage.removeItem(storageKey);
         }
 
-        async function listData(origin, dataType) {
-            return new Promise((resolve, reject) => {
-                const transaction = db.transaction(["secureData"], "readonly");
-                const objectStore = transaction.objectStore("secureData");
-                const request = objectStore.getAll();
-                request.onerror = () => reject(request.error);
-                request.onsuccess = () => {
-                    const items = request.result.filter(item => item.origin === origin && item.dataType === dataType);
-                    resolve(items.map(item => item.key));
-                };
-            });
+        function listData(origin, dataType) {
+            const prefix = `${origin}:${dataType}:`;
+            return Object.keys(localStorage)
+                .filter(key => key.startsWith(prefix))
+                .map(key => key.slice(prefix.length));
         }
 
         // Listen for messages from the parent window
-        window.addEventListener('message', async (event) => {
+        window.addEventListener('message', (event) => {
             console.log("Received message. Origin:", event.origin, "Data:", event.data);
 
             // Strictly check for root path
@@ -95,19 +56,19 @@
             try {
                 switch (action) {
                     case 'set':
-                        await setData(origin, dataType, key, value);
+                        setData(origin, dataType, key, value);
                         response.success = true;
                         break;
                     case 'get':
-                        response.value = await getData(origin, dataType, key);
+                        response.value = getData(origin, dataType, key);
                         response.success = true;
                         break;
                     case 'delete':
-                        await deleteData(origin, dataType, key);
+                        deleteData(origin, dataType, key);
                         response.success = true;
                         break;
                     case 'list':
-                        response.value = await listData(origin, dataType);
+                        response.value = listData(origin, dataType);
                         response.success = true;
                         break;
                     default:
@@ -120,6 +81,8 @@
 
             safePostMessage(response, origin);
         });
+
+        console.log("Secure storage (localStorage) initialized");
     </script>
 </body>
 </html>
