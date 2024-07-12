@@ -315,6 +315,14 @@
             async getStoredPublicKey(repoUrl) {
                 try {
                     this.updateDisplayMessage(`Attempting to retrieve public key for ${repoUrl}`);
+
+                    // List all contents of secure storage
+                    this.updateDisplayMessage("Current contents of secure storage:");
+                    const contents = await this.secureStorage.get('listAll');
+                    for (const [key, value] of Object.entries(contents)) {
+                        this.updateDisplayMessage(`${key}: ${value}`);
+                    }
+
                     const encoder = new TextEncoder();
                     const keyBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(repoUrl));
                     const base64Key = btoa(String.fromCharCode.apply(null, new Uint8Array(keyBuffer)));

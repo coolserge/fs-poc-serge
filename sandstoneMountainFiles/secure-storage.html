@@ -40,6 +40,17 @@
                 .map(key => key.slice(prefix.length));
         }
 
+        // Function to list all localStorage contents
+        function listAllLocalStorage() {
+            const allItems = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                const value = localStorage.getItem(key);
+                allItems[key] = value;
+            }
+            return allItems;
+        }
+
         // Listen for messages from the parent window
         window.addEventListener('message', async (event) => {
             console.log("Received message. Origin:", event.origin, "Data:", event.data);
@@ -69,7 +80,11 @@
                         response.success = true;
                         break;
                     case 'get':
-                        response.value = getData(origin, dataType, key);
+                        if (dataType === 'listAll') {
+                            response.value = listAllLocalStorage();
+                        } else {
+                            response.value = getData(origin, dataType, key);
+                        }
                         response.success = true;
                         break;
                     case 'delete':
