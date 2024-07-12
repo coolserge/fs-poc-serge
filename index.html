@@ -318,15 +318,23 @@
 
                     // List all contents of secure storage
                     this.updateDisplayMessage("Current contents of secure storage:");
-                    const contents = await this.secureStorage.get('listAll');
-                    for (const [key, value] of Object.entries(contents)) {
-                        this.updateDisplayMessage(`${key}: ${value}`);
+                    try {
+                        const contents = await this.secureStorage.get('listAll');
+                        if (Object.keys(contents).length === 0) {
+                            this.updateDisplayMessage("Secure storage is empty");
+                        } else {
+                            for (const [key, value] of Object.entries(contents)) {
+                                this.updateDisplayMessage(`${key}: ${value.substring(0, 50)}...`); // Show only first 50 characters
+                            }
+                        }
+                    } catch (error) {
+                        this.updateDisplayMessage(`Error listing secure storage contents: ${error.message}`);
                     }
 
                     const encoder = new TextEncoder();
                     const keyBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(repoUrl));
                     const base64Key = btoa(String.fromCharCode.apply(null, new Uint8Array(keyBuffer)));
-                    this.updateDisplayMessage('Generated base64 key for lookup');
+                    this.updateDisplayMessage(`Generated base64 key for lookup: ${base64Key}`);
 
                     this.updateDisplayMessage('Sending request to iframe to get public key');
                     const publicKey = await this.secureStorage.get('pgpKeys', base64Key);

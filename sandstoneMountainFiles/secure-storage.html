@@ -20,40 +20,48 @@
         function setData(origin, dataType, key, value) {
             const storageKey = `${origin}:${dataType}:${key}`;
             localStorage.setItem(storageKey, JSON.stringify(value));
+            console.log(`Data set for ${storageKey}`);
         }
 
         function getData(origin, dataType, key) {
             const storageKey = `${origin}:${dataType}:${key}`;
             const value = localStorage.getItem(storageKey);
+            console.log(`Data retrieved for ${storageKey}: ${value ? 'Found' : 'Not found'}`);
             return value ? JSON.parse(value) : null;
         }
 
         function deleteData(origin, dataType, key) {
             const storageKey = `${origin}:${dataType}:${key}`;
             localStorage.removeItem(storageKey);
+            console.log(`Data deleted for ${storageKey}`);
         }
 
         function listData(origin, dataType) {
             const prefix = `${origin}:${dataType}:`;
-            return Object.keys(localStorage)
+            const keys = Object.keys(localStorage)
                 .filter(key => key.startsWith(prefix))
                 .map(key => key.slice(prefix.length));
+            console.log(`Listed keys for ${origin}:${dataType}: ${keys.join(', ')}`);
+            return keys;
         }
 
         // Function to list all localStorage contents
         function listAllLocalStorage() {
+            console.log("Listing all localStorage contents");
             const allItems = {};
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
                 const value = localStorage.getItem(key);
                 allItems[key] = value;
+                console.log(`${key}: ${value.substring(0, 50)}...`); // Log only first 50 characters
             }
+            console.log(`Total items in localStorage: ${localStorage.length}`);
             return allItems;
         }
 
         // Listen for messages from the parent window
         window.addEventListener('message', async (event) => {
-            console.log("Received message. Origin:", event.origin, "Data:", event.data);
+            console.log("Received message. Origin:", event.origin, "Data:", JSON.stringify(event.data));
 
             // Handle ping message
             if (event.data.action === 'ping') {
@@ -103,7 +111,7 @@
                 response.error = error.message;
             }
 
-            console.log("Sending response:", response);
+            console.log("Sending response:", JSON.stringify(response));
             safePostMessage(response, origin);
         });
 
