@@ -29,7 +29,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(clients.claim());
 });
 
-const origins = ['http://localhost', 'https://cdn.jsdelivr.net', 'https://sandstonemountain.com', 'https://gist.githubusercontent.com'];
+const origins = ['http://localhost', 'https://microci.com','https://cdn.jsdelivr.net', 'https://sandstonemountain.com', 'https://gist.githubusercontent.com'];
 //const origins = ['http://localhost', 'https://cdn.jsdelivr.net'];
 //const origins = ['https://cdn.jsdelivr.net'];
 
