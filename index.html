@@ -35,12 +35,14 @@
                         <input type="url" class="form-control mb-2" id="repoUrl" placeholder="Enter repository URL">
                     </div>
                 </div>
+                <!-- Toggle repokey via url vs hardcoding
                 <div class="form-row align-items-center">
                     <div class="col-12 col-md-6">
                         <label for="pgpKeyUrl" class="sr-only">PGP Key URL</label>
                         <input type="url" class="form-control mb-2" id="pgpKeyUrl" placeholder="Enter PGP Key URL">
                     </div>
                 </div>
+                -->
                 <div class="form-row align-items-center">
                     <div class="col-12 col-md-6">
                         <button type="submit" class="btn btn-primary mb-2">Clone Repo</button>
@@ -73,7 +75,7 @@
         const fs = new LightningFS('testfs');
         const pfs = fs.promises;
         const corsProxy = 'https://microci.com';
-        //       const pgpKey = 'https://gist.githubusercontent.com/coolserge/bd305bd73260b61d06954e7c2a982655/raw/ea467d6644fd848ba355640e7714f89734db9da2/file.pgp';
+        const pgpKeyUrl = 'https://gist.githubusercontent.com/coolserge/bd305bd73260b61d06954e7c2a982655/raw/ea467d6644fd848ba355640e7714f89734db9da2/file.pgp';
         const messageDiv = document.getElementById('displayMessage');
 
         // Function to register service worker
@@ -99,7 +101,7 @@
         document.getElementById('repoForm').addEventListener('submit', async function (event) {
             event.preventDefault();
             const repoUrl = document.getElementById('repoUrl').value;
-            const pgpKeyUrl = document.getElementById('pgpKeyUrl').value;
+            //const pgpKeyUrl = document.getElementById('pgpKeyUrl').value;
             if (repoUrl && pgpKeyUrl) {
                 GitUILibrary.renderUI.displayMessage(messageDiv, '');
                 const result = await GitUILibrary.gitOps.cloneRepo(fs, pfs, corsProxy, repoUrl, pgpKeyUrl);
