@@ -29,7 +29,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(clients.claim());
 });
 
-const origins = ['http://localhost', 'https://microcitest.info','https://microci.com','https://cdn.jsdelivr.net', 'https://gist.githubusercontent.com','https://stackpath.bootstrapcdn.com'];
+const origins = ['http://localhost', 'https://www.microcitest.info', 'https://microcitest.info','https://microci.com','https://cdn.jsdelivr.net', 'https://gist.githubusercontent.com','https://stackpath.bootstrapcdn.com'];
 //const origins = ['http://localhost', 'https://cdn.jsdelivr.net'];
 //const origins = ['https://cdn.jsdelivr.net'];
 
