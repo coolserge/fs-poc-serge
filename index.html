@@ -10,6 +10,10 @@
         body {
             padding: 20px;
         }
+        .widget-container {
+            display: flex;
+            justify-content: center;
+        }
     </style>
 </head>
 <body>
@@ -20,7 +24,9 @@
             <p>Navigate to the static page <a href="admin/index.html">here</a></p>
         </div>
 
-        <git-widget></git-widget>
+        <div class="widget-container">
+            <git-widget></git-widget>
+        </div>
     </div>
 
     <script src="git-widget.js"></script>

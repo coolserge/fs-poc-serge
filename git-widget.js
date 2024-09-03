@@ -46,6 +46,16 @@ class GitWidget extends HTMLElement {
             :host {
                 display: block;
                 font-family: Arial, sans-serif;
+                width: 50%;
+                margin: 0 auto;
+                border: 2px solid #007bff;
+                border-radius: 10px;
+                padding: 20px;
+            }
+            @media (max-width: 768px) {
+                :host {
+                    width: 100%;
+                }
             }
             .repo-container {
                 border: 1px solid #ccc;
@@ -53,23 +63,41 @@ class GitWidget extends HTMLElement {
                 padding: 10px;
                 margin-bottom: 10px;
             }
+            .repo-row {
+                margin-bottom: 10px;
+                display: flex;
+                align-items: center;
+            }
+            .repo-name {
+                font-size: 1.1rem;
+                font-weight: bold;
+                margin: 0;
+            }
+            .repo-link {
+                text-align: right;
+            }
+            @media (max-width: 768px) {
+                .repo-row.selects .col-md-6 {
+                    margin-bottom: 10px;
+                }
+            }
         `;
         this.shadowRoot.appendChild(style);
 
-        const container = this.createElement('div', { class: 'container mt-5' });
+        const container = this.createElement('div', { class: 'container-fluid p-0' });
         
-        const title = this.createElement('h1', { class: 'mb-3' }, 'Git Operations');
+        const title = this.createElement('h2', { class: 'mb-3' }, 'Git Operations');
         container.appendChild(title);
 
         const cloneControlPanel = this.createElement('div', { id: 'cloneControlPanel', class: 'mb-3' });
         const repoForm = this.createElement('form', { id: 'repoForm' });
-        const formRow = this.createElement('div', { class: 'form-row align-items-center' });
-        const inputCol = this.createElement('div', { class: 'col-12 col-md-6' });
-        const repoUrlInput = this.createElement('input', { type: 'url', class: 'form-control mb-2', id: 'repoUrl', placeholder: 'Enter repository URL', required: true });
+        const formRow = this.createElement('div', { class: 'form-row' });
+        const inputCol = this.createElement('div', { class: 'col-9' });
+        const repoUrlInput = this.createElement('input', { type: 'url', class: 'form-control', id: 'repoUrl', placeholder: 'Enter repository URL', required: true });
         inputCol.appendChild(repoUrlInput);
         formRow.appendChild(inputCol);
-        const buttonCol = this.createElement('div', { class: 'col-12 col-md-6' });
-        const cloneButton = this.createElement('button', { type: 'submit', class: 'btn btn-primary mb-2' }, 'Clone Repo');
+        const buttonCol = this.createElement('div', { class: 'col-3' });
+        const cloneButton = this.createElement('button', { type: 'submit', class: 'btn btn-primary w-100' }, 'Clone');
         buttonCol.appendChild(cloneButton);
         formRow.appendChild(buttonCol);
         repoForm.appendChild(formRow);
@@ -82,7 +110,7 @@ class GitWidget extends HTMLElement {
         const reposContainer = this.createElement('div', { id: 'reposContainer', class: 'mt-3' });
         container.appendChild(reposContainer);
 
-        const deleteAllRepos = this.createElement('div', { id: 'deleteAllRepos', class: 'mt-3 mb-3', style: 'display: none;' });
+        const deleteAllRepos = this.createElement('div', { id: 'deleteAllRepos', class: 'mt-3', style: 'display: none;' });
         const deleteAllButton = this.createElement('button', { id: 'deleteAllButton', class: 'btn btn-danger' }, 'Delete All Repos');
         deleteAllRepos.appendChild(deleteAllButton);
         container.appendChild(deleteAllRepos);
@@ -124,40 +152,43 @@ class GitWidget extends HTMLElement {
             this.shadowRoot.getElementById('deleteAllRepos').style.display = 'none';
         } else {
             for (const repo of repos) {
-                const repoElement = this.createElement('div', { class: 'repo-container mb-3' });
+                const repoElement = this.createElement('div', { class: 'repo-container' });
                 
-                const row = this.createElement('div', { class: 'row align-items-center' });
-                
-                const nameCol = this.createElement('div', { class: 'col-md-3' });
-                nameCol.appendChild(this.createElement('h3', { class: 'mb-0' }, repo));
-                row.appendChild(nameCol);
-
-                const linkCol = this.createElement('div', { class: 'col-md-3' });
-                const repoLink = this.createElement('a', { href: `/${repo}/index.html`, target: '_blank' }, 'View Repository');
+                // First row: Repo name and link
+                const row1 = this.createElement('div', { class: 'repo-row row' });
+                const nameCol = this.createElement('div', { class: 'col-6' });
+                nameCol.appendChild(this.createElement('p', { class: 'repo-name' }, repo));
+                row1.appendChild(nameCol);
+                const linkCol = this.createElement('div', { class: 'col-6 repo-link' });
+                const repoLink = this.createElement('a', { href: `/${repo}/index.html` }, 'View Repository');
                 linkCol.appendChild(repoLink);
-                row.appendChild(linkCol);
+                row1.appendChild(linkCol);
+                repoElement.appendChild(row1);
 
-                const branchCol = this.createElement('div', { class: 'col-md-2' });
+                // Second row: Branch and commit selects
+                const row2 = this.createElement('div', { class: 'repo-row row selects' });
+                const branchCol = this.createElement('div', { class: 'col-md-6' });
                 const branchSelect = this.createElement('select', { class: 'form-control branch-select' });
                 branchCol.appendChild(branchSelect);
-                row.appendChild(branchCol);
-
-                const commitCol = this.createElement('div', { class: 'col-md-2' });
+                row2.appendChild(branchCol);
+                const commitCol = this.createElement('div', { class: 'col-md-6' });
                 const commitSelect = this.createElement('select', { class: 'form-control commit-select' });
                 commitCol.appendChild(commitSelect);
-                row.appendChild(commitCol);
+                row2.appendChild(commitCol);
+                repoElement.appendChild(row2);
 
-                const buttonCol = this.createElement('div', { class: 'col-md-2' });
+                // Third row: Buttons
+                const row3 = this.createElement('div', { class: 'repo-row row' });
+                const buttonCol = this.createElement('div', { class: 'col-12' });
                 const fetchButton = this.createElement('button', { class: 'btn btn-info mr-2' }, 'Fetch');
                 fetchButton.addEventListener('click', () => this.fetchRepo(repo));
                 buttonCol.appendChild(fetchButton);
-
                 const deleteButton = this.createElement('button', { class: 'btn btn-danger' }, 'Delete');
                 deleteButton.addEventListener('click', () => this.deleteRepo(repo));
                 buttonCol.appendChild(deleteButton);
-                row.appendChild(buttonCol);
+                row3.appendChild(buttonCol);
+                repoElement.appendChild(row3);
 
-                repoElement.appendChild(row);
                 reposContainer.appendChild(repoElement);
 
                 await this.populateBranchSelect(repo, branchSelect);
