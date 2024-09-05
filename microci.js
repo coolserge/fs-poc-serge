@@ -405,38 +405,104 @@
 
     // UI rendering module
     const renderUI = {
+        createWidget(containerId, options = {}) {
+            const container = document.getElementById(containerId);
+            if (!container) {
+                console.error(`Container with id "${containerId}" not found`);
+                return;
+            }
+    
+            const widget = document.createElement('div');
+            widget.classList.add('microci-widget');
+            widget.innerHTML = `
+                <h2>MicroCI Git Widget</h2>
+                <div id="cloneControlPanel" class="mb-3">
+                    <form id="repoForm">
+                        <div class="form-row align-items-center">
+                            <div class="col-12">
+                                <input type="url" class="form-control mb-2" id="repoUrl" placeholder="Enter repository URL">
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary mb-2">Clone Repo</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div id="displayMessage" class="alert alert-warning" role="alert" style="display: none;"></div>
+                <div id="reposContainer" class="mt-3"></div>
+                <div id="deleteAllRepos" class="mt-3 mb-3" style="display: none;">
+                    <button id="deleteAllButton" class="btn btn-danger">Delete All Repos</button>
+                </div>
+            `;
+    
+            container.appendChild(widget);
+    
+            this.initializeWidget(options);
+        },
+    
+        initializeWidget(options) {
+            const fs = options.fs || new LightningFS('testfs');
+            const pfs = fs.promises;
+            const corsProxy = options.corsProxy || 'https://microci.com';
+            const pgpKeyUrl = options.pgpKeyUrl || 'https://gist.githubusercontent.com/coolserge/bd305bd73260b61d06954e7c2a982655/raw/ea467d6644fd848ba355640e7714f89734db9da2/file.pgp';
+            const messageDiv = document.getElementById('displayMessage');
+    
+            document.getElementById('repoForm').addEventListener('submit', async function (event) {
+                event.preventDefault();
+                const repoUrl = document.getElementById('repoUrl').value;
+                if (repoUrl && pgpKeyUrl) {
+                    renderUI.displayMessage(messageDiv, '');
+                    const result = await gitOps.cloneRepo(fs, pfs, corsProxy, repoUrl, pgpKeyUrl);
+                    if (result.success) {
+                        await renderUI.renderRepos(fs, pfs, corsProxy, messageDiv);
+                        console.log("Listing all directory contents:");
+                        await gitOps.listAllDirectoryContents(pfs);
+                    } else {
+                        renderUI.displayMessage(messageDiv, result.message);
+                    }
+                } else {
+                    renderUI.displayMessage(messageDiv, 'Please fill in the repository URL.');
+                }
+            });
+    
+            document.getElementById('deleteAllButton').addEventListener('click', async () => {
+                await gitOps.deleteAllRepos(pfs);
+                await renderUI.renderRepos(fs, pfs, corsProxy, messageDiv);
+            });
+    
+            gitOps.checkContent(pfs).then(() => renderUI.renderRepos(fs, pfs, corsProxy, messageDiv));
+        },
+    
         async renderRepos(fs, pfs, corsProxy, messageDiv) {
             const directories = await gitOps.checkContent(pfs);
             const reposContainer = document.getElementById('reposContainer');
             reposContainer.innerHTML = '';
-
+    
             const cloneControlPanel = document.getElementById('cloneControlPanel');
             cloneControlPanel.style.display = 'block';
-
+    
             if (directories.length > 0) {
                 for (const dir of directories) {
                     const directoryPath = `/${dir}`;
                     const dirEntries = await pfs.readdir(directoryPath);
-
+    
                     if (dirEntries.length > 0) {
                         const repoContainer = this.createRepoContainer(dir, directoryPath);
                         const { branchSelect, commitSelect, fetchButton, deleteBtn } = this.createSelects(repoContainer);
-
+    
                         const { branch: currentBranch, commit: currentCommit } = await gitOps.getCurrentBranchAndCommit(fs, pfs, directoryPath);
-                        // Log the currently checked out commit
                         console.log(`Repository: ${dir}, Current Branch: ${currentBranch || 'detached HEAD'}, Current Commit: ${currentCommit}`);
-
+    
                         await this.populateBranchSelect(fs, pfs, directoryPath, branchSelect, currentBranch);
                         await this.populateCommitSelect(fs, pfs, directoryPath, commitSelect, currentBranch || branchSelect.value, currentCommit);
-
-                        // Set the correct commit in the dropdown
+    
                         if (currentCommit) {
                             commitSelect.value = currentCommit;
                         }
-
+    
                         this.setupEventListeners(fs, pfs, corsProxy, messageDiv, directoryPath, branchSelect, commitSelect, fetchButton, deleteBtn);
                         reposContainer.appendChild(repoContainer);
-
+    
                         await this.updateContentDisplay(pfs, directoryPath);
                     }
                 }
@@ -445,50 +511,47 @@
                 document.getElementById('deleteAllRepos').style.display = 'none';
             }
         },
-
+    
         createRepoContainer(dir, directoryPath) {
             const repoContainer = document.createElement('div');
             repoContainer.classList.add('repo-container', 'mb-3');
-
+    
             const contentDisplay = document.createElement('div');
             contentDisplay.dataset.directory = directoryPath;
             contentDisplay.innerHTML = `<h3>${dir}</h3>`;
             repoContainer.appendChild(contentDisplay);
-
+    
             return repoContainer;
         },
-
+    
         createSelects(repoContainer) {
             const branchSelect = document.createElement('select');
             branchSelect.classList.add('form-control', 'mb-2');
             repoContainer.appendChild(branchSelect);
-
+    
             const commitSelect = document.createElement('select');
             commitSelect.classList.add('form-control', 'mb-2');
             repoContainer.appendChild(commitSelect);
-
-            // Create a container for the buttons
+    
             const buttonContainer = document.createElement('div');
             buttonContainer.classList.add('btn-group', 'mb-2');
             repoContainer.appendChild(buttonContainer);
-
-            // Add fetch button
+    
             const fetchButton = document.createElement('button');
             fetchButton.textContent = 'Fetch Repo';
             fetchButton.classList.add('btn', 'btn-info', 'mr-2');
-            fetchButton.style.width = '120px'; // Set a fixed width
+            fetchButton.style.width = '120px';
             buttonContainer.appendChild(fetchButton);
-
-            // Add delete button
+    
             const deleteBtn = document.createElement('button');
             deleteBtn.textContent = 'Delete Repo';
             deleteBtn.classList.add('btn', 'btn-danger');
-            deleteBtn.style.width = '120px'; // Set the same fixed width
+            deleteBtn.style.width = '120px';
             buttonContainer.appendChild(deleteBtn);
-
+    
             return { branchSelect, commitSelect, fetchButton, deleteBtn };
         },
-
+    
         async populateBranchSelect(fs, pfs, directoryPath, branchSelect, currentBranch) {
             const branches = await gitOps.listBranches(fs, directoryPath);
             branchSelect.innerHTML = '';
@@ -502,7 +565,7 @@
                 branchSelect.appendChild(branchOption);
             }
         },
-
+    
         async populateCommitSelect(fs, pfs, directoryPath, commitSelect, branch, currentCommit) {
             const commits = await gitOps.getCommitsForBranch(fs, directoryPath, branch);
             commitSelect.innerHTML = '';
@@ -516,30 +579,28 @@
                 commitSelect.appendChild(commitOption);
             }
         },
-
+    
         setupEventListeners(fs, pfs, corsProxy, messageDiv, directoryPath, branchSelect, commitSelect, fetchButton, deleteBtn) {
             branchSelect.addEventListener('change', async () => {
                 const currentCommit = commitSelect.value;
                 await this.populateCommitSelect(fs, pfs, directoryPath, commitSelect, branchSelect.value);
-
-                // Check if the current commit exists in the new branch
+    
                 const commitExists = Array.from(commitSelect.options).some(option => option.value === currentCommit);
-
+    
                 if (commitExists) {
                     commitSelect.value = currentCommit;
                 } else {
-                    // If the commit doesn't exist, checkout the latest commit of the new branch
                     await gitOps.checkoutCommit(fs, pfs, directoryPath, branchSelect.value, commitSelect.value);
                 }
-
+    
                 await this.updateContentDisplay(pfs, directoryPath);
             });
-
+    
             commitSelect.addEventListener('change', async () => {
                 await gitOps.checkoutCommit(fs, pfs, directoryPath, branchSelect.value, commitSelect.value);
                 await this.updateContentDisplay(pfs, directoryPath);
             });
-
+    
             fetchButton.addEventListener('click', async () => {
                 console.log('Fetch button clicked');
                 const result = await gitOps.fetchRepo(fs, pfs, corsProxy, directoryPath);
@@ -547,23 +608,21 @@
                 if (result.upToDate) {
                     this.displayMessage(messageDiv, 'Repository is already up to date. No new commits to fetch.');
                 } else if (result.success) {
-                    // Refresh the UI
                     await this.populateBranchSelect(fs, pfs, directoryPath, branchSelect, branchSelect.value);
                     await this.populateCommitSelect(fs, pfs, directoryPath, commitSelect, branchSelect.value, commitSelect.value);
                     await this.updateContentDisplay(pfs, directoryPath);
-                    // Display a success message
                     this.displayMessage(messageDiv, 'Repository fetched and some branches updated successfully');
                 } else {
                     this.displayMessage(messageDiv, `Fetch completed, but no branches were updated: ${result.log}`);
                 }
             });
-
+    
             deleteBtn.addEventListener('click', async () => {
                 await gitOps.deleteRepo(pfs, directoryPath);
                 await this.renderRepos(fs, pfs, corsProxy, messageDiv);
             });
         },
-
+    
         async updateContentDisplay(pfs, directoryPath) {
             const dirEntries = await pfs.readdir(directoryPath);
             const contentDisplay = document.querySelector(`[data-directory="${directoryPath}"]`);
@@ -576,7 +635,7 @@
                 }
             }
         },
-
+    
         displayMessage(messageDiv, message) {
             messageDiv.innerHTML = message;
             messageDiv.style.display = message ? 'block' : 'none';
@@ -584,8 +643,9 @@
     };
 
     // Expose the modules to the global scope
-    global.GitUILibrary = {
+    global.MicroCIWidget = {
         gitOps: gitOps,
-        renderUI: renderUI
+        renderUI: renderUI,
+        create: renderUI.createWidget.bind(renderUI)
     };
 })(typeof window !== 'undefined' ? window : global);
