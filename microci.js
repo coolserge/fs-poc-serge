@@ -414,16 +414,20 @@
     
             const widget = document.createElement('div');
             widget.classList.add('microci-widget');
+    
+            // Apply default styles
+            this.applyDefaultStyles(widget);
+    
             widget.innerHTML = `
                 <h2>MicroCI Git Widget</h2>
                 <div id="cloneControlPanel" class="mb-3">
                     <form id="repoForm">
                         <div class="form-row align-items-center">
-                            <div class="col-12">
-                                <input type="url" class="form-control mb-2" id="repoUrl" placeholder="Enter repository URL">
+                            <div class="col-12 col-sm-8 mb-2 mb-sm-0">
+                                <input type="url" class="form-control" id="repoUrl" placeholder="Enter repository URL">
                             </div>
-                            <div class="col-12">
-                                <button type="submit" class="btn btn-primary mb-2">Clone Repo</button>
+                            <div class="col-12 col-sm-4">
+                                <button type="submit" class="btn btn-primary">Clone Repo</button>
                             </div>
                         </div>
                     </form>
@@ -437,7 +441,42 @@
     
             container.appendChild(widget);
     
+            // Apply custom styles if provided
+            if (options.styles) {
+                this.applyCustomStyles(widget, options.styles);
+            }
+    
             this.initializeWidget(options);
+        },
+    
+        applyDefaultStyles(widget) {
+            widget.style.border = '1px solid #ccc';
+            widget.style.borderRadius = '5px';
+            widget.style.padding = '20px';
+            widget.style.marginTop = '20px';
+            widget.style.width = '100%';
+            widget.style.maxWidth = '100%';
+    
+            // Media query for screens larger than 768px
+            const mediaQuery = window.matchMedia('(min-width: 768px)');
+            
+            const handleMediaQuery = (e) => {
+                if (e.matches) {
+                    widget.style.width = '50%';
+                } else {
+                    widget.style.width = '100%';
+                }
+            };
+    
+            // Initial check
+            handleMediaQuery(mediaQuery);
+            
+            // Add listener for future changes
+            mediaQuery.addListener(handleMediaQuery);
+        },
+    
+        applyCustomStyles(widget, customStyles) {
+            Object.assign(widget.style, customStyles);
         },
     
         initializeWidget(options) {
@@ -514,7 +553,7 @@
     
         createRepoContainer(dir, directoryPath) {
             const repoContainer = document.createElement('div');
-            repoContainer.classList.add('repo-container', 'mb-3');
+            repoContainer.classList.add('repo-container', 'mb-3', 'p-3', 'border', 'rounded');
     
             const contentDisplay = document.createElement('div');
             contentDisplay.dataset.directory = directoryPath;

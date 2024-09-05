@@ -8,30 +8,6 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/css/bootstrap.min.css"
         integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
     <title>LightningFS and Isomorphic-git POC</title>
-    <style>
-        .microci-widget-container {
-            width: 50%;
-            /* Remove margin-left and margin-right for left alignment */
-        }
-        .microci-widget {
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            padding: 20px;
-            margin-top: 20px;
-        }
-        /* Additional styles to ensure widget components are not too wide */
-        .microci-widget input,
-        .microci-widget select,
-        .microci-widget button {
-            max-width: 100%;
-        }
-        /* Responsive design for smaller screens */
-        @media (max-width: 768px) {
-            .microci-widget-container {
-                width: 100%;
-            }
-        }
-    </style>
 </head>
 
 <body>
@@ -42,9 +18,7 @@
             <p>Navigate to the static page <a href="admin/index.html">here</a></p>
         </div>
         <!-- MicroCI Widget will be inserted here -->
-        <div class="microci-widget-container">
-            <div id="microciWidget"></div>
-        </div>
+        <div id="microciWidget"></div>
     </div>
 
     <!-- Required libraries -->
