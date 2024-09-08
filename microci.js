@@ -430,7 +430,7 @@
 
             container.innerHTML = `
                 <div class="microci-widget">
-                    <h2>MicroCI Widget</h2>
+                    <h2>microCI Widget</h2>
                     <div id="${this.containerId}-clone-panel">
                         <form id="${this.containerId}-repo-form">
                             <input type="url" id="${this.containerId}-repo-url" placeholder="Enter repository URL">
