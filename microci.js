@@ -431,22 +431,16 @@
             container.innerHTML = `
                 <div class="microci-widget">
                     <h2>MicroCI Widget</h2>
-                    <div id="${this.containerId}-clone-panel" class="mb-3">
+                    <div id="${this.containerId}-clone-panel">
                         <form id="${this.containerId}-repo-form">
-                            <div class="form-row align-items-center">
-                                <div class="col-12 col-md-6">
-                                    <input type="url" class="form-control mb-2" id="${this.containerId}-repo-url" placeholder="Enter repository URL">
-                                </div>
-                                <div class="col-12 col-md-6">
-                                    <button type="submit" class="btn btn-primary mb-2">Clone Repo</button>
-                                </div>
-                            </div>
+                            <input type="url" id="${this.containerId}-repo-url" placeholder="Enter repository URL">
+                            <button type="submit">Clone Repo</button>
                         </form>
                     </div>
-                    <div id="${this.containerId}-message" class="alert alert-warning" role="alert" style="display: none;"></div>
-                    <div id="${this.containerId}-repos-container" class="mt-3"></div>
-                    <div id="${this.containerId}-delete-all" class="mt-3 mb-3" style="display: none;">
-                        <button id="${this.containerId}-delete-all-button" class="btn btn-danger">Delete All Repos</button>
+                    <div id="${this.containerId}-message" style="display: none;"></div>
+                    <div id="${this.containerId}-repos-container"></div>
+                    <div id="${this.containerId}-delete-all" style="display: none;">
+                        <button id="${this.containerId}-delete-all-button">Delete All Repos</button>
                     </div>
                 </div>
             `;
@@ -522,7 +516,7 @@
 
         createRepoContainer(dir, directoryPath) {
             const repoContainer = document.createElement('div');
-            repoContainer.classList.add('repo-container', 'mb-3');
+            repoContainer.className = 'repo-container';
 
             const contentDisplay = document.createElement('div');
             contentDisplay.dataset.directory = directoryPath;
@@ -534,27 +528,20 @@
 
         createSelects(repoContainer) {
             const branchSelect = document.createElement('select');
-            branchSelect.classList.add('form-control', 'mb-2');
             repoContainer.appendChild(branchSelect);
 
             const commitSelect = document.createElement('select');
-            commitSelect.classList.add('form-control', 'mb-2');
             repoContainer.appendChild(commitSelect);
 
             const buttonContainer = document.createElement('div');
-            buttonContainer.classList.add('btn-group', 'mb-2');
             repoContainer.appendChild(buttonContainer);
 
             const fetchButton = document.createElement('button');
             fetchButton.textContent = 'Fetch Repo';
-            fetchButton.classList.add('btn', 'btn-info', 'mr-2');
-            fetchButton.style.width = '120px';
             buttonContainer.appendChild(fetchButton);
 
             const deleteBtn = document.createElement('button');
             deleteBtn.textContent = 'Delete Repo';
-            deleteBtn.classList.add('btn', 'btn-danger');
-            deleteBtn.style.width = '120px';
             buttonContainer.appendChild(deleteBtn);
 
             return { branchSelect, commitSelect, fetchButton, deleteBtn };
