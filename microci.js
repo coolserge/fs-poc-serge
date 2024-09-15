@@ -130,6 +130,8 @@
                 let latestCommit = null;
                 let latestTimestamp = 0;
 
+                // ******** Function to be eddited for array **********
+
                 for (const branch of branches) {
                     await git.checkout({ fs, dir: directoryPath, ref: branch });
                     const commits = await git.log({ fs, dir: directoryPath, ref: branch });

@@ -64,11 +64,36 @@
 
     <script>
         // Utility functions and global variables
+
+        // ********** Create an array to contain pgpKeysURL ************
         const fs = new LightningFS('testfs');
         const pfs = fs.promises;
         const corsProxy = 'https://microci.com';
-        const pgpKeyUrl = 'https://gist.githubusercontent.com/coolserge/bd305bd73260b61d06954e7c2a982655/raw/ea467d6644fd848ba355640e7714f89734db9da2/file.pgp';
+
+        // Array to store keys
+        const pgpKeys = [
+            {
+                key: 'https://gist.githubusercontent.com/Samtheman773/99341f03ae1834c96752edf3d82f594b/raw/3f509f7ff7acf3eb0af4862df7f5f31bcd061ad1/Sam-Key1.pgp',
+                pattern: /github\.com\/Samtheman773/
+            },
+            {
+                key: 'https://gist.githubusercontent.com/Samtheman773/99341f03ae1834c96752edf3d82f594b/raw/3f509f7ff7acf3eb0af4862df7f5f31bcd061ad1/Sam-Key1.pgp',
+                pattern: /github\.com\/test-site-1/
+            },
+            {
+                key: 'https://gist.githubusercontent.com/coolserge/bd305bd73260b61d06954e7c2a982655/raw/ea467d6644fd848ba355640e7714f89734db9da2/file.pgp',
+                pattern: /github\.com\/coolserge\/wasmadd/
+            }
+        ];
+        
+        // const pgpKeyUrl = 'https://gist.githubusercontent.com/Samtheman773/99341f03ae1834c96752edf3d82f594b/raw/3f509f7ff7acf3eb0af4862df7f5f31bcd061ad1/Sam-Key1.pgp';
         const messageDiv = document.getElementById('displayMessage');
+
+        // Function to find the matching PGP key for a given repo URL
+        function findMatchingKey(repoUrl) {
+            const matchingKey = pgpKeys.find(keyObj => keyObj.pattern.test(repoUrl));
+            return matchingKey ? matchingKey.key : null
+        }
 
         // Function to register service worker
         function registerServiceWorker() {
@@ -93,10 +118,12 @@
         document.getElementById('repoForm').addEventListener('submit', async function (event) {
             event.preventDefault();
             const repoUrl = document.getElementById('repoUrl').value;
+            const matchingKeyUrl = findMatchingKey(repoUrl);
+
             //const pgpKeyUrl = document.getElementById('pgpKeyUrl').value;
-            if (repoUrl && pgpKeyUrl) {
+            if (repoUrl && matchingKeyUrl) {
                 GitUILibrary.renderUI.displayMessage(messageDiv, '');
-                const result = await GitUILibrary.gitOps.cloneRepo(fs, pfs, corsProxy, repoUrl, pgpKeyUrl);
+                const result = await GitUILibrary.gitOps.cloneRepo(fs, pfs, corsProxy, repoUrl, matchingKeyUrl);
                 if (result.success) {
                     await GitUILibrary.renderUI.renderRepos(fs, pfs, corsProxy, messageDiv);
                     // Call listAllDirectoryContents directly
@@ -105,6 +132,8 @@
                 } else {
                     GitUILibrary.renderUI.displayMessage(messageDiv, result.message);
                 }
+            } else if (!matchingKeyUrl) {
+                GitUILibrary.renderUI.displayMessage(messageDiv, 'No matching PGP key found for the provided repo URL.')
             } else {
                 GitUILibrary.renderUI.displayMessage(messageDiv, 'Please fill in both the repository and the PGP Key URLs.');
             }
