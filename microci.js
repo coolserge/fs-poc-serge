@@ -406,92 +406,114 @@
     // UI rendering module
     const renderUI = {
         async renderRepos(fs, pfs, corsProxy, messageDiv) {
+            console.log('Rendering repos...');
             const directories = await gitOps.checkContent(pfs);
+            console.log('Directories found:', directories);
             const reposContainer = document.getElementById('reposContainer');
-            reposContainer.innerHTML = '';
-
+            
+            if (!reposContainer) {
+                console.error('Repositories container not found. Body HTML:', document.body.innerHTML);
+                return;
+            }
+    
+            // Remove all child nodes
+            while (reposContainer.firstChild) {
+                reposContainer.removeChild(reposContainer.firstChild);
+            }
+    
             const cloneControlPanel = document.getElementById('cloneControlPanel');
-            cloneControlPanel.style.display = 'block';
-
+            if (cloneControlPanel) {
+                cloneControlPanel.classList.remove('hidden');
+            } else {
+                console.error('Clone control panel not found');
+            }
+    
             if (directories.length > 0) {
                 for (const dir of directories) {
                     const directoryPath = `/${dir}`;
                     const dirEntries = await pfs.readdir(directoryPath);
-
+    
                     if (dirEntries.length > 0) {
-                        const repoContainer = this.createRepoContainer(dir, directoryPath);
-                        const { branchSelect, commitSelect, fetchButton, deleteBtn } = this.createSelects(repoContainer);
-
-                        const { branch: currentBranch, commit: currentCommit } = await gitOps.getCurrentBranchAndCommit(fs, pfs, directoryPath);
-                        // Log the currently checked out commit
-                        console.log(`Repository: ${dir}, Current Branch: ${currentBranch || 'detached HEAD'}, Current Commit: ${currentCommit}`);
-
-                        await this.populateBranchSelect(fs, pfs, directoryPath, branchSelect, currentBranch);
-                        await this.populateCommitSelect(fs, pfs, directoryPath, commitSelect, currentBranch || branchSelect.value, currentCommit);
-
-                        // Set the correct commit in the dropdown
-                        if (currentCommit) {
-                            commitSelect.value = currentCommit;
+                        const repoElement = this.createRepoElement(dir, directoryPath);
+                        if (repoElement) {
+                            const branchSelect = repoElement.querySelector('.branch-select');
+                            const commitSelect = repoElement.querySelector('.commit-select');
+                            const fetchButton = repoElement.querySelector('.fetch-button');
+                            const deleteBtn = repoElement.querySelector('.delete-button');
+    
+                            const { branch: currentBranch, commit: currentCommit } = await gitOps.getCurrentBranchAndCommit(fs, pfs, directoryPath);
+                            console.log(`Repository: ${dir}, Current Branch: ${currentBranch || 'detached HEAD'}, Current Commit: ${currentCommit}`);
+    
+                            await this.populateBranchSelect(fs, pfs, directoryPath, branchSelect, currentBranch);
+                            await this.populateCommitSelect(fs, pfs, directoryPath, commitSelect, currentBranch || branchSelect.value, currentCommit);
+    
+                            if (currentCommit) {
+                                commitSelect.value = currentCommit;
+                            }
+    
+                            this.setupEventListeners(fs, pfs, corsProxy, messageDiv, directoryPath, branchSelect, commitSelect, fetchButton, deleteBtn);
+                            reposContainer.appendChild(repoElement);
+    
+                            await this.updateContentDisplay(pfs, directoryPath, repoElement.querySelector('.repo-content'));
+                        } else {
+                            console.error(`Failed to create repo element for ${dir}`);
                         }
-
-                        this.setupEventListeners(fs, pfs, corsProxy, messageDiv, directoryPath, branchSelect, commitSelect, fetchButton, deleteBtn);
-                        reposContainer.appendChild(repoContainer);
-
-                        await this.updateContentDisplay(pfs, directoryPath);
                     }
                 }
-                document.getElementById('deleteAllRepos').style.display = 'block';
+                const deleteAllRepos = document.getElementById('deleteAllRepos');
+                if (deleteAllRepos) {
+                    deleteAllRepos.classList.remove('hidden');
+                } else {
+                    console.error('Delete all repos button not found');
+                }
             } else {
-                document.getElementById('deleteAllRepos').style.display = 'none';
+                const deleteAllRepos = document.getElementById('deleteAllRepos');
+                if (deleteAllRepos) {
+                    deleteAllRepos.classList.add('hidden');
+                } else {
+                    console.error('Delete all repos button not found');
+                }
             }
         },
-
-        createRepoContainer(dir, directoryPath) {
-            const repoContainer = document.createElement('div');
-            repoContainer.classList.add('repo-container', 'mb-3');
-
-            const contentDisplay = document.createElement('div');
-            contentDisplay.dataset.directory = directoryPath;
-            contentDisplay.innerHTML = `<h3>${dir}</h3>`;
-            repoContainer.appendChild(contentDisplay);
-
-            return repoContainer;
+    
+        createRepoElement(dir, directoryPath) {
+            const template = document.getElementById('repoTemplate');
+            if (!template) {
+                console.error('Template with id "repoTemplate" not found. HTML structure:', document.body.innerHTML);
+                return null;
+            }
+            const repoElement = document.importNode(template.content, true).firstElementChild;
+            
+            if (!repoElement) {
+                console.error('Failed to create repo element from template. Template content:', template.innerHTML);
+                return null;
+            }
+            
+            const repoNameElement = repoElement.querySelector('.repo-name');
+            const repoContentElement = repoElement.querySelector('.repo-content');
+            
+            if (repoNameElement) {
+                repoNameElement.textContent = dir;
+            } else {
+                console.error('Repo name element not found in template. RepoElement structure:', repoElement.innerHTML);
+            }
+            
+            if (repoContentElement) {
+                repoContentElement.dataset.directory = directoryPath;
+            } else {
+                console.error('Repo content element not found in template. RepoElement structure:', repoElement.innerHTML);
+            }
+            
+            return repoElement;
         },
-
-        createSelects(repoContainer) {
-            const branchSelect = document.createElement('select');
-            branchSelect.classList.add('form-control', 'mb-2');
-            repoContainer.appendChild(branchSelect);
-
-            const commitSelect = document.createElement('select');
-            commitSelect.classList.add('form-control', 'mb-2');
-            repoContainer.appendChild(commitSelect);
-
-            // Create a container for the buttons
-            const buttonContainer = document.createElement('div');
-            buttonContainer.classList.add('btn-group', 'mb-2');
-            repoContainer.appendChild(buttonContainer);
-
-            // Add fetch button
-            const fetchButton = document.createElement('button');
-            fetchButton.textContent = 'Fetch Repo';
-            fetchButton.classList.add('btn', 'btn-info', 'mr-2');
-            fetchButton.style.width = '120px'; // Set a fixed width
-            buttonContainer.appendChild(fetchButton);
-
-            // Add delete button
-            const deleteBtn = document.createElement('button');
-            deleteBtn.textContent = 'Delete Repo';
-            deleteBtn.classList.add('btn', 'btn-danger');
-            deleteBtn.style.width = '120px'; // Set the same fixed width
-            buttonContainer.appendChild(deleteBtn);
-
-            return { branchSelect, commitSelect, fetchButton, deleteBtn };
-        },
-
+    
         async populateBranchSelect(fs, pfs, directoryPath, branchSelect, currentBranch) {
+            if (!branchSelect) {
+                console.error('Branch select element not found');
+                return;
+            }
             const branches = await gitOps.listBranches(fs, directoryPath);
-            branchSelect.innerHTML = '';
+            branchSelect.innerHTML = ''; // Clear existing options
             for (const branch of branches) {
                 const branchOption = document.createElement('option');
                 branchOption.value = branch;
@@ -502,10 +524,14 @@
                 branchSelect.appendChild(branchOption);
             }
         },
-
+    
         async populateCommitSelect(fs, pfs, directoryPath, commitSelect, branch, currentCommit) {
+            if (!commitSelect) {
+                console.error('Commit select element not found');
+                return;
+            }
             const commits = await gitOps.getCommitsForBranch(fs, directoryPath, branch);
-            commitSelect.innerHTML = '';
+            commitSelect.innerHTML = ''; // Clear existing options
             for (const commit of commits) {
                 const commitOption = document.createElement('option');
                 commitOption.value = commit.oid;
@@ -516,70 +542,91 @@
                 commitSelect.appendChild(commitOption);
             }
         },
-
+    
         setupEventListeners(fs, pfs, corsProxy, messageDiv, directoryPath, branchSelect, commitSelect, fetchButton, deleteBtn) {
-            branchSelect.addEventListener('change', async () => {
-                const currentCommit = commitSelect.value;
-                await this.populateCommitSelect(fs, pfs, directoryPath, commitSelect, branchSelect.value);
-
-                // Check if the current commit exists in the new branch
-                const commitExists = Array.from(commitSelect.options).some(option => option.value === currentCommit);
-
-                if (commitExists) {
-                    commitSelect.value = currentCommit;
-                } else {
-                    // If the commit doesn't exist, checkout the latest commit of the new branch
+            if (branchSelect) {
+                branchSelect.addEventListener('change', async () => {
+                    const currentCommit = commitSelect.value;
+                    await this.populateCommitSelect(fs, pfs, directoryPath, commitSelect, branchSelect.value);
+    
+                    const commitExists = Array.from(commitSelect.options).some(option => option.value === currentCommit);
+    
+                    if (commitExists) {
+                        commitSelect.value = currentCommit;
+                    } else {
+                        await gitOps.checkoutCommit(fs, pfs, directoryPath, branchSelect.value, commitSelect.value);
+                    }
+    
+                    await this.updateContentDisplay(pfs, directoryPath, commitSelect.closest('.repo-container').querySelector('.repo-content'));
+                });
+            } else {
+                console.error('Branch select element not found');
+            }
+    
+            if (commitSelect) {
+                commitSelect.addEventListener('change', async () => {
                     await gitOps.checkoutCommit(fs, pfs, directoryPath, branchSelect.value, commitSelect.value);
-                }
-
-                await this.updateContentDisplay(pfs, directoryPath);
-            });
-
-            commitSelect.addEventListener('change', async () => {
-                await gitOps.checkoutCommit(fs, pfs, directoryPath, branchSelect.value, commitSelect.value);
-                await this.updateContentDisplay(pfs, directoryPath);
-            });
-
-            fetchButton.addEventListener('click', async () => {
-                console.log('Fetch button clicked');
-                const result = await gitOps.fetchRepo(fs, pfs, corsProxy, directoryPath);
-                console.log('Fetch result:', result);
-                if (result.upToDate) {
-                    this.displayMessage(messageDiv, 'Repository is already up to date. No new commits to fetch.');
-                } else if (result.success) {
-                    // Refresh the UI
-                    await this.populateBranchSelect(fs, pfs, directoryPath, branchSelect, branchSelect.value);
-                    await this.populateCommitSelect(fs, pfs, directoryPath, commitSelect, branchSelect.value, commitSelect.value);
-                    await this.updateContentDisplay(pfs, directoryPath);
-                    // Display a success message
-                    this.displayMessage(messageDiv, 'Repository fetched and some branches updated successfully');
-                } else {
-                    this.displayMessage(messageDiv, `Fetch completed, but no branches were updated: ${result.log}`);
-                }
-            });
-
-            deleteBtn.addEventListener('click', async () => {
-                await gitOps.deleteRepo(pfs, directoryPath);
-                await this.renderRepos(fs, pfs, corsProxy, messageDiv);
-            });
-        },
-
-        async updateContentDisplay(pfs, directoryPath) {
-            const dirEntries = await pfs.readdir(directoryPath);
-            const contentDisplay = document.querySelector(`[data-directory="${directoryPath}"]`);
-            if (contentDisplay) {
-                const repoName = directoryPath.slice(1);
-                if (dirEntries.includes('index.html')) {
-                    contentDisplay.innerHTML = `<h3>${repoName}</h3>Navigate to the cloned page <a href="${directoryPath}/index.html">here</a><br>`;
-                } else {
-                    contentDisplay.innerHTML = `<h3>${repoName}</h3>No index.html found in this directory.<br>`;
-                }
+                    await this.updateContentDisplay(pfs, directoryPath, commitSelect.closest('.repo-container').querySelector('.repo-content'));
+                });
+            } else {
+                console.error('Commit select element not found');
+            }
+    
+            if (fetchButton) {
+                fetchButton.addEventListener('click', async () => {
+                    console.log('Fetch button clicked');
+                    const result = await gitOps.fetchRepo(fs, pfs, corsProxy, directoryPath);
+                    console.log('Fetch result:', result);
+                    if (result.upToDate) {
+                        this.displayMessage(messageDiv, 'Repository is already up to date. No new commits to fetch.');
+                    } else if (result.success) {
+                        await this.populateBranchSelect(fs, pfs, directoryPath, branchSelect, branchSelect.value);
+                        await this.populateCommitSelect(fs, pfs, directoryPath, commitSelect, branchSelect.value, commitSelect.value);
+                        await this.updateContentDisplay(pfs, directoryPath, commitSelect.closest('.repo-container').querySelector('.repo-content'));
+                        this.displayMessage(messageDiv, 'Repository fetched and some branches updated successfully');
+                    } else {
+                        this.displayMessage(messageDiv, `Fetch completed, but no branches were updated: ${result.log}`);
+                    }
+                });
+            } else {
+                console.error('Fetch button not found');
+            }
+    
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', async () => {
+                    await gitOps.deleteRepo(pfs, directoryPath);
+                    await this.renderRepos(fs, pfs, corsProxy, messageDiv);
+                });
+            } else {
+                console.error('Delete button not found');
             }
         },
-
+    
+        async updateContentDisplay(pfs, directoryPath, contentElement) {
+            if (!contentElement) {
+                console.error('Content element not found');
+                return;
+            }
+            const dirEntries = await pfs.readdir(directoryPath);
+            contentElement.innerHTML = '';
+            if (dirEntries.includes('index.html')) {
+                contentElement.innerHTML = `
+                    <p class="text-base">
+                        Navigate to the cloned page <a href="${directoryPath}/index.html" class="text-blue-500 hover:text-blue-700 underline">here</a>
+                    </p>
+                `;
+            } else {
+                contentElement.innerHTML = '<p class="text-gray-600">No index.html found in this directory.</p>';
+            }
+        },
+    
         displayMessage(messageDiv, message) {
-            messageDiv.innerHTML = message;
-            messageDiv.style.display = message ? 'block' : 'none';
+            if (!messageDiv) {
+                console.error('Message div not found');
+                return;
+            }
+            messageDiv.textContent = message;
+            messageDiv.classList.toggle('hidden', !message);
         }
     };
 
