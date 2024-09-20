@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LightningFS and Isomorphic-git POC</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        body {
+            background-color: #f3f4f6;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 48rem;
+        }
+
+        .btn-clone {
+            background-color: #3b82f6;
+            border-color: #3b82f6;
+        }
+
+        .btn-clone:hover {
+            background-color: #2563eb;
+            border-color: #2563eb;
+        }
+
+        .btn-fetch {
+            background-color: #10b981;
+            border-color: #10b981;
+        }
+
+        .btn-fetch:hover {
+            background-color: #059669;
+            border-color: #059669;
+        }
+
+        .btn-delete {
+            background-color: #ef4444;
+            border-color: #ef4444;
+        }
+
+        .btn-delete:hover {
+            background-color: #dc2626;
+            border-color: #dc2626;
+        }
+
+        .repo-button {
+            width: 8rem;
+        }
+
+        #repoForm {
+            width: 100%;
+        }
+
+        #repoUrl {
+            flex-grow: 1;
+        }
+
+        .btn-clone {
+            width: 120px;
+        }
+        .hidden { display: none !important; }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1 class="mb-4">LightningFS and Isomorphic-git POC</h1>
+
+        <!-- Clone control panel -->
+        <div id="cloneControlPanel" class="mb-4">
+            <form id="repoForm" class="d-flex">
+                <input type="url" id="repoUrl" placeholder="Enter repository URL" class="form-control me-2">
+                <button type="submit" class="btn btn-primary btn-clone">Clone&nbsp;Repo</button>
+            </form>
+        </div>
+
+        <!-- Message display area -->
+        <div id="displayMessage" role="alert" class="alert alert-warning d-none mb-4"></div>
+
+        <!-- Repositories container -->
+        <div id="reposContainer">
+            <!-- Repositories will be dynamically added here -->
+        </div>
+
+        <!-- Template for each repository -->
+        <template id="repoTemplate">
+            <div class="repo-container card mb-4">
+                <div class="card-body">
+                    <h3 class="repo-name card-title"></h3>
+                    <div class="repo-content mb-3"></div>
+                    <div class="controls">
+                        <select class="branch-select form-select mb-2"></select>
+                        <select class="commit-select form-select mb-2"></select>
+                        <div class="button-group d-flex">
+                            <button class="fetch-button btn btn-success text-white me-2 repo-button">Fetch Repo</button>
+                            <button class="delete-button btn btn-danger text-white repo-button">Delete Repo</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- Delete all repositories button -->
+        <div id="deleteAllRepos" class="mt-4 hidden">
+            <button id="deleteAllButton" class="btn btn-danger">Delete All Repos</button>
+        </div>
+    </div>
+
+    <!-- Required libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/@isomorphic-git/lightning-fs/dist/lightning-fs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/isomorphic-git@1.27.0/index.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/isomorphic-git@1.27.0/http/web/index.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/idb-keyval/dist/umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/openpgp@5.11.2/dist/openpgp.min.js"></script>
+
+    <!-- Bootstrap 5 JS (optional, but included for potential future use) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Load the Git UI Library -->
+    <script src="microci.js"></script>
+
+    <!-- Main script -->
+    <script>
+        // Global error handler
+        window.addEventListener('error', function (event) {
+            console.error('Uncaught error:', event.error);
+        });
+
+        // Utility functions and global variables
+        const fs = new LightningFS('testfs');
+        const pfs = fs.promises;
+        const corsProxy = 'https://microci.com';
+        const pgpKeyUrl = 'https://gist.githubusercontent.com/coolserge/bd305bd73260b61d06954e7c2a982655/raw/ea467d6644fd848ba355640e7714f89734db9da2/file.pgp';
+        const messageDiv = document.getElementById('displayMessage');
+
+        // Function to register service worker
+        function registerServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => {
+                        reg.addEventListener('updatefound', () => {
+                            const installingWorker = reg.installing;
+                            console.log('A new service worker is being installed:', installingWorker);
+                        });
+                        console.log('Registration succeeded. Scope is ' + reg.scope);
+                    })
+                    .catch(error => {
+                        console.log('Registration failed with ' + error);
+                    });
+            } else {
+                console.log('Service workers are not supported in this browser.');
+            }
+        }
+
+        // Main script
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log('DOM fully loaded and parsed');
+
+            document.getElementById('repoForm').addEventListener('submit', async function (event) {
+                event.preventDefault();
+                const repoUrl = document.getElementById('repoUrl').value;
+                if (repoUrl && pgpKeyUrl) {
+                    GitUILibrary.renderUI.displayMessage(messageDiv, '');
+                    const result = await GitUILibrary.gitOps.cloneRepo(fs, pfs, corsProxy, repoUrl, pgpKeyUrl);
+                    if (result.success) {
+                        await GitUILibrary.renderUI.renderRepos(fs, pfs, corsProxy, messageDiv);
+                    } else {
+                        GitUILibrary.renderUI.displayMessage(messageDiv, result.message);
+                    }
+                } else {
+                    GitUILibrary.renderUI.displayMessage(messageDiv, 'Please fill in the repository URL');
+                }
+            });
+
+            document.getElementById('deleteAllButton').addEventListener('click', async () => {
+                await GitUILibrary.gitOps.deleteAllRepos(pfs);
+                await GitUILibrary.renderUI.renderRepos(fs, pfs, corsProxy, messageDiv);
+            });
+
+            // Initialize
+            registerServiceWorker();
+            GitUILibrary.gitOps.checkContent(pfs).then(() => {
+                console.log('Initializing renderRepos');
+                return GitUILibrary.renderUI.renderRepos(fs, pfs, corsProxy, messageDiv);
+            }).catch(error => {
+                console.error('Error during initialization:', error);
+            });
+
+            console.log('All event listeners set up');
+        });
+    </script>
+</body>
+
+</html>
