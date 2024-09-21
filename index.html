@@ -99,7 +99,7 @@
         // Function to register service worker
         function registerServiceWorker() {
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('sw.js')
+                navigator.serviceWorker.register('/sw.js', { scope: '/' })
                     .then(reg => {
                         reg.addEventListener('updatefound', () => {
                             const installingWorker = reg.installing;
