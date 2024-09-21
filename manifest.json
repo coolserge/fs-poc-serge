@@ -1,7 +1,7 @@
 {
-    "name": "microCI decentralized social network",
+    "name": "microCI client-based CI",
     "short_name": "microCI",
-    "description": "A decentralized social network",
+    "description": "A client-based CI tool",
     "start_url": "/index.html",
     "display": "standalone",
     "background_color": "#ffffff",
