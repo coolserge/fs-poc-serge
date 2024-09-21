@@ -15,7 +15,7 @@ const test = url => {
     return false;
   }
   const path = url.pathname;
-  return !path.match(/admin|sw.js|newton.html|microci.js|(^\/$)/) && !path.startsWith('/content');
+  return !path.match(/admin|sw.js|newton.html|microci.js|manifest.json|icons|(^\/$)/) && !path.startsWith('/content');
 };
 
 const dir = async () => {
