@@ -1,0 +1,27 @@
+{
+  "name": "microCI client-based CI",
+  "short_name": "microCI",
+  "description": "A client-based CI tool",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0d9488",
+  "icons": [
+    {
+      "src": "/icons/pwaIcon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/pwaIcon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/pwaIcon.png",
+      "sizes": "1024x1024",
+      "type": "image/png"
+    }
+  ]
+}
+  
